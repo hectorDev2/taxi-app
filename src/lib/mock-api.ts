@@ -2,8 +2,8 @@ import {
   usuarios, conductores, unidades, ubicaciones,
   solicitudes, asignaciones, tarifasConfig,
   serviciosHistorial, cancelaciones,
-  calcularTarifa,
-  type Usuario, type Unidad, type Solicitud,
+  calcularTarifa, distanciaKm,
+  type Usuario, type Unidad, type Solicitud, type Cancelacion,
   type UbicacionUnidad,
 } from "./mock-data";
 
@@ -45,6 +45,17 @@ export const api = {
     },
     getUbicacion(unidadId: number) {
       return delay(ubicaciones.find((u) => u.unidad_id === unidadId) || null);
+    },
+    nearestUnits(lat: number, lng: number, tipo?: string) {
+      const libres = unidades.filter((u) => u.estado_actual === "libre" && u.activa);
+      const disponibles = tipo ? libres.filter((u) => u.tipo_unidad === tipo || tipo !== "carga_pasajeros") : libres;
+      const conDistancia = disponibles
+        .map((u) => {
+          const ubi = ubicaciones.find((ub) => ub.unidad_id === u.id);
+          return { ...u, distancia: ubi ? distanciaKm(lat, lng, ubi.latitud, ubi.longitud) : 999 };
+        })
+        .sort((a, b) => a.distancia - b.distancia);
+      return delay(conDistancia);
     },
   },
 
@@ -100,6 +111,22 @@ export const api = {
       if (!sol) return delay(null);
       sol.estado = estado;
       sol.updated_at = new Date().toISOString();
+      return delay(sol);
+    },
+    cancel(solicitudId: number, motivo: string, registradoPor: Cancelacion["registrado_por"]) {
+      const sol = solicitudes.find((s) => s.id === solicitudId);
+      if (!sol) return delay(null);
+      sol.estado = "cancelada";
+      sol.updated_at = new Date().toISOString();
+      const uni = unidades.find((u) => u.id === sol.unidad_id);
+      if (uni) uni.estado_actual = "libre";
+      cancelaciones.push({
+        id: genId(cancelaciones),
+        solicitud_id: solicitudId,
+        motivo,
+        registrado_por: registradoPor,
+        fecha_hora: new Date().toISOString(),
+      });
       return delay(sol);
     },
     getHistorial() {

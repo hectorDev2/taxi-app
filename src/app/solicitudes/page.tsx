@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/header";
 import { Plus, Search } from "lucide-react";
 import { api } from "@/lib/mock-api";
+import { SkeletonTable } from "@/components/skeleton";
 
 const estadoBadge: Record<string, string> = {
   pendiente: "bg-yellow-100 text-yellow-700",
@@ -19,10 +20,25 @@ const estadoBadge: Record<string, string> = {
 export default function SolicitudesPage() {
   const router = useRouter();
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("");
 
   useEffect(() => {
-    api.solicitudes.list().then(setSolicitudes);
+    api.solicitudes.list().then((list) => { setSolicitudes(list); setLoading(false); });
   }, []);
+
+  const filtradas = solicitudes.filter((s) => {
+    if (filtroEstado && s.estado !== filtroEstado) return false;
+    if (busqueda) {
+      const q = busqueda.toLowerCase();
+      if (!s.codigo.toLowerCase().includes(q) &&
+          !s.nombre_pasajero.toLowerCase().includes(q) &&
+          !s.punto_recojo_texto.toLowerCase().includes(q) &&
+          !(s.telefono_pasajero || "").includes(q)) return false;
+    }
+    return true;
+  });
 
   return (
     <div>
@@ -30,13 +46,27 @@ export default function SolicitudesPage() {
 
       <div className="p-8">
         <div className="flex items-center justify-between mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar solicitud..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none w-80"
-            />
+          <div className="flex gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por código, pasajero, dirección..."
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none w-80"
+              />
+            </div>
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
+            >
+              <option value="">Todos los estados</option>
+              {Object.keys(estadoBadge).map((k) => (
+                <option key={k} value={k}>{k.replace(/_/g, " ")}</option>
+              ))}
+            </select>
           </div>
           <button
             onClick={() => router.push("/solicitudes/nueva")}
@@ -47,6 +77,7 @@ export default function SolicitudesPage() {
           </button>
         </div>
 
+        {loading ? <SkeletonTable rows={6} /> : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="w-full">
             <thead>
@@ -62,7 +93,9 @@ export default function SolicitudesPage() {
               </tr>
             </thead>
             <tbody>
-              {solicitudes.map((s) => (
+              {filtradas.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-8 text-gray-400 text-sm">No se encontraron solicitudes</td></tr>
+              ) : (filtradas.map((s) => (
                 <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{s.codigo}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{s.nombre_pasajero}</td>
@@ -79,10 +112,14 @@ export default function SolicitudesPage() {
                     <button onClick={() => router.push(`/solicitudes/${s.id}`)} className="text-yellow-600 hover:text-yellow-700 text-sm font-medium">Ver detalle</button>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
+          <div className="px-6 py-3 border-t border-gray-100 text-sm text-gray-500">
+            {filtradas.length} de {solicitudes.length} solicitudes
+          </div>
         </div>
+        )}
       </div>
     </div>
   );

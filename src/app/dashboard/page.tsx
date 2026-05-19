@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Header from "@/components/header";
-import { Car, Clock, CheckCircle, AlertTriangle, Wifi, WifiOff } from "lucide-react";
+import { Car, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/mock-api";
+import MapboxMap from "@/components/map";
+import { SkeletonCard, SkeletonMap } from "@/components/skeleton";
 
 const iconMap: Record<string, React.ElementType> = {
   libres: Car,
@@ -29,10 +31,26 @@ const labelMap: Record<string, string> = {
 export default function DashboardPage() {
   const [stats, setStats] = useState<Record<string, number>>({});
   const [ultimasSolicitudes, setUltimasSolicitudes] = useState<any[]>([]);
+  const [marcadores, setMarcadores] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.solicitudes.getEstadisticas().then(setStats);
-    api.solicitudes.list().then((list) => setUltimasSolicitudes(list.slice(0, 5)));
+    Promise.all([
+      api.solicitudes.getEstadisticas(),
+      api.solicitudes.list(),
+      api.unidades.getUbicaciones(),
+    ]).then(([s, list, ubicaciones]) => {
+      setStats(s);
+      setUltimasSolicitudes(list.slice(0, 5));
+      const markers = ubicaciones.map((u: any) => ({
+        lat: u.latitud,
+        lng: u.longitud,
+        color: u.unidad_id === 2 ? "#3b82f6" : "#22c55e",
+        label: `Unidad ${u.unidad_id}`,
+      }));
+      setMarcadores(markers);
+      setLoading(false);
+    });
   }, []);
 
   return (
@@ -41,7 +59,11 @@ export default function DashboardPage() {
 
       <div className="p-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {["libres", "ocupadas", "serviciosHoy", "fueraServicio"].map((key) => {
+          {loading ? (
+            <>
+              <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
+            </>
+          ) : (["libres", "ocupadas", "serviciosHoy", "fueraServicio"].map((key) => {
             const Icon = iconMap[key];
             return (
               <div key={key} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -56,19 +78,13 @@ export default function DashboardPage() {
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Mapa de Unidades</h3>
-            <div className="bg-gray-100 rounded-lg h-[350px] flex items-center justify-center text-gray-400">
-              <div className="text-center">
-                <Car className="w-12 h-12 mx-auto mb-2" />
-                <p>Mapa en tiempo real</p>
-                <p className="text-sm">(requiere integración con Google Maps)</p>
-              </div>
-            </div>
+            {loading ? <SkeletonMap /> : <MapboxMap height="350px" markers={marcadores} />}
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

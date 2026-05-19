@@ -258,6 +258,16 @@ export const cancelaciones: Cancelacion[] = [
   { id: 2, solicitud_id: 10, motivo: "No se encontró unidad disponible", registrado_por: "operador", fecha_hora: "2026-05-18T16:10:00" },
 ];
 
+export function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export function calcularTarifa(tipo: string, distanciaKm: number, duracionMin: number, esNocturno: boolean): number {
   const cfg = tarifasConfig[0];
   let total = cfg.tarifa_base + (distanciaKm * cfg.costo_por_km) + (duracionMin * cfg.costo_por_minuto);

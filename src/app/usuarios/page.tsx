@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Header from "@/components/header";
 import { UserPlus, Edit2, Trash2 } from "lucide-react";
 import { api } from "@/lib/mock-api";
+import { useToast } from "@/components/toast";
+import { SkeletonTable } from "@/components/skeleton";
 
 const rolStyle: Record<string, string> = {
   admin: "bg-purple-100 text-purple-700",
@@ -13,10 +15,25 @@ const rolStyle: Record<string, string> = {
 
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filtroRol, setFiltroRol] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("");
+  const { toast } = useToast();
 
-  useEffect(() => {
-    api.usuarios.list().then(setUsuarios);
-  }, []);
+  const cargar = () => api.usuarios.list().then((list) => { setUsuarios(list); setLoading(false); });
+  useEffect(() => { cargar(); }, []);
+
+  const eliminar = async (id: number, nombre: string) => {
+    await api.usuarios.delete(id);
+    toast(`Usuario "${nombre}" eliminado`);
+    cargar();
+  };
+
+  const filtrados = usuarios.filter((u) => {
+    if (filtroRol && u.rol !== filtroRol) return false;
+    if (filtroEstado && u.estado !== filtroEstado) return false;
+    return true;
+  });
 
   return (
     <div>
@@ -25,16 +42,24 @@ export default function UsuariosPage() {
       <div className="p-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex gap-3">
-            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm">
-              <option>Todos los roles</option>
-              <option>Admin</option>
-              <option>Operador</option>
-              <option>Conductor</option>
+            <select
+              value={filtroRol}
+              onChange={(e) => setFiltroRol(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
+            >
+              <option value="">Todos los roles</option>
+              <option value="admin">Admin</option>
+              <option value="operador">Operador</option>
+              <option value="conductor">Conductor</option>
             </select>
-            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm">
-              <option>Todos los estados</option>
-              <option>Activo</option>
-              <option>Inactivo</option>
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
+            >
+              <option value="">Todos los estados</option>
+              <option value="activo">Activo</option>
+              <option value="inactivo">Inactivo</option>
             </select>
           </div>
           <button className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold px-4 py-2.5 rounded-lg transition-colors">
@@ -43,6 +68,7 @@ export default function UsuariosPage() {
           </button>
         </div>
 
+        {loading ? <SkeletonTable rows={6} /> : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="w-full">
             <thead>
@@ -57,7 +83,9 @@ export default function UsuariosPage() {
               </tr>
             </thead>
             <tbody>
-              {usuarios.map((u) => (
+              {filtrados.length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-8 text-gray-400 text-sm">No se encontraron usuarios</td></tr>
+              ) : (filtrados.map((u) => (
                 <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{u.nombres}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{u.email}</td>
@@ -76,16 +104,20 @@ export default function UsuariosPage() {
                       <button className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                         <Edit2 className="w-4 h-4 text-gray-500" />
                       </button>
-                      <button className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
+                      <button onClick={() => eliminar(u.id, u.nombres)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
                         <Trash2 className="w-4 h-4 text-red-400" />
                       </button>
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
+          <div className="px-6 py-3 border-t border-gray-100 text-sm text-gray-500">
+            {filtrados.length} de {usuarios.length} usuarios
+          </div>
         </div>
+        )}
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Car } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/components/toast";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { toast } = useToast();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -20,9 +22,11 @@ export default function LoginPage() {
     const ok = await login(email, password);
     setLoading(false);
     if (ok) {
+      toast("Inicio de sesión exitoso");
       router.push("/dashboard");
     } else {
       setError("Credenciales incorrectas");
+      toast("Credenciales incorrectas", "error");
     }
   };
 

@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { api } from "@/lib/mock-api";
 import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/components/toast";
+import MapboxMap from "@/components/map";
 
 export default function NuevaSolicitudPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [unidades, setUnidades] = useState<any[]>([]);
   const [form, setForm] = useState({
     nombre_pasajero: "",
@@ -20,7 +23,7 @@ export default function NuevaSolicitudPage() {
   });
 
   useEffect(() => {
-    api.unidades.list().then((list) => setUnidades(list.filter((u) => u.estado_actual === "libre")));
+    api.unidades.nearestUnits(-12.0464, -77.0428).then(setUnidades);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,10 +44,11 @@ export default function NuevaSolicitudPage() {
       await api.solicitudes.assign(sol.id, Number(form.unidad_id), conductorId || 1, user?.id || 2);
     }
 
+    toast("Solicitud creada exitosamente");
     router.push("/solicitudes");
   };
 
-  const unidadesLibres = unidades.filter((u) => {
+  const unidadesLibres = unidades.filter((u: any) => {
     if (form.tipo_servicio === "carga_pasajeros") return u.tipo_unidad === "carga_pasajeros";
     return true;
   });
@@ -105,13 +109,7 @@ export default function NuevaSolicitudPage() {
               </div>
             </div>
 
-            <div className="bg-gray-100 rounded-lg h-[200px] flex items-center justify-center text-gray-400 text-sm">
-              <div className="text-center">
-                <MapPin className="w-8 h-8 mx-auto mb-1" />
-                <p>Seleccionar en el mapa</p>
-                <p className="text-xs">(requiere integración con Google Maps)</p>
-              </div>
-            </div>
+            <MapboxMap height="200px" interactive={false} />
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
@@ -167,9 +165,9 @@ export default function NuevaSolicitudPage() {
                   required={form.asignar_ahora}
                 >
                   <option value="">Seleccione una unidad libre</option>
-                  {unidadesLibres.map((u) => (
+                  {unidadesLibres.map((u: any) => (
                     <option key={u.id} value={u.id}>
-                      {u.codigo} - {u.placa} ({u.tipo_unidad === "pasajeros" ? "Pasajeros" : "Carga + Pasajeros"}) {u.conductor_asignado ? `- ${u.conductor_asignado}` : ""}
+                      {u.codigo} - {u.placa} ({u.tipo_unidad === "pasajeros" ? "Pasajeros" : "Carga + Pasajeros"}) {u.distancia < 1 ? `${(u.distancia * 1000).toFixed(0)}m` : `${u.distancia.toFixed(1)}km`} {u.conductor_asignado ? `- ${u.conductor_asignado}` : ""}
                     </option>
                   ))}
                 </select>
