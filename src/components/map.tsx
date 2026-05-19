@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -24,16 +24,69 @@ interface Props {
   interactive?: boolean;
 }
 
+function generateCurvedPath(origin: [number, number], dest: [number, number], steps = 30): [number, number][] {
+  const mid = [(origin[0] + dest[0]) / 2, (origin[1] + dest[1]) / 2];
+  const dx = dest[0] - origin[0];
+  const dy = dest[1] - origin[1];
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  mid[0] += (dy / dist) * dist * 0.15;
+  mid[1] -= (dx / dist) * dist * 0.15;
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const a = (1 - t) * (1 - t);
+    const b = 2 * (1 - t) * t;
+    const c = t * t;
+    pts.push([a * origin[0] + b * mid[0] + c * dest[0], a * origin[1] + b * mid[1] + c * dest[1]]);
+  }
+  return pts;
+}
+
 export async function fetchRoute(origin: [number, number], dest: [number, number]): Promise<[number, number][]> {
   const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${origin[0]},${origin[1]};${dest[0]},${dest[1]}?geometries=geojson&access_token=${TOKEN}`;
   try {
     const res = await fetch(url);
     const data = await res.json();
-    if (data.routes?.[0]?.geometry?.coordinates) {
+    if (data.routes?.[0]?.geometry?.coordinates?.length > 0) {
       return data.routes[0].geometry.coordinates as [number, number][];
     }
   } catch {}
-  return [origin, dest];
+  return generateCurvedPath(origin, dest);
+}
+
+function removeRouteLayers(map: mapboxgl.Map) {
+  const ids = ["apptaxi-route-line", "apptaxi-route-glow"];
+  ids.forEach((id) => {
+    try { if (map.getLayer(id)) map.removeLayer(id); } catch {}
+    try { if (map.getSource(id)) map.removeSource(id); } catch {}
+  });
+}
+
+function addRouteToMap(map: mapboxgl.Map, points: [number, number][], color: string) {
+  const data: GeoJSON.Feature = {
+    type: "Feature",
+    properties: {},
+    geometry: { type: "LineString", coordinates: points },
+  };
+  removeRouteLayers(map);
+  map.addSource("apptaxi-route-line", { type: "geojson", data });
+  map.addLayer({
+    id: "apptaxi-route-line",
+    type: "line",
+    source: "apptaxi-route-line",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: { "line-color": color, "line-width": 5, "line-opacity": 0.85 },
+  });
+  if (points.length > 2) {
+    map.addSource("apptaxi-route-glow", { type: "geojson", data });
+    map.addLayer({
+      id: "apptaxi-route-glow",
+      type: "line",
+      source: "apptaxi-route-glow",
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: { "line-color": color, "line-width": 12, "line-opacity": 0.2 },
+    });
+  }
 }
 
 export default function MapboxMap({
@@ -47,22 +100,25 @@ export default function MapboxMap({
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!container.current || map.current) return;
     mapboxgl.accessToken = TOKEN;
-    map.current = new mapboxgl.Map({
+    const m = new mapboxgl.Map({
       container: container.current,
       style: "mapbox://styles/mapbox/streets-v12",
       center,
       zoom,
       interactive,
     });
-    map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
+    m.addControl(new mapboxgl.NavigationControl(), "top-right");
+    m.on("load", () => setLoaded(true));
+    map.current = m;
   }, []);
 
   useEffect(() => {
-    if (!map.current) return;
+    if (!map.current || !loaded) return;
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
     markers.forEach((m) => {
@@ -73,27 +129,20 @@ export default function MapboxMap({
       const marker = new mapboxgl.Marker({ element: el }).setLngLat([m.lng, m.lat]).addTo(map.current!);
       markersRef.current.push(marker);
     });
-  }, [markers]);
+  }, [markers, loaded]);
 
   useEffect(() => {
-    if (!map.current || !map.current.isStyleLoaded()) return;
-    const existing = document.querySelectorAll(".apptaxi-route-layer");
-    existing.forEach((el) => el.remove());
-    routes.forEach((route, i) => {
-      const id = `route-${i}`;
-      map.current!.addSource(id, {
-        type: "geojson",
-        data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: route.points } },
-      });
-      map.current!.addLayer({
-        id,
-        type: "line",
-        source: id,
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": route.color || "#3b82f6", "line-width": 4, "line-opacity": 0.8 },
-      });
-    });
-  }, [routes]);
+    if (!map.current || !loaded) return;
+    removeRouteLayers(map.current);
+    if (routes.length > 0) {
+      addRouteToMap(map.current, routes[0].points, routes[0].color || "#eab308");
+      if (routes[0].points.length >= 2) {
+        const bounds = new mapboxgl.LngLatBounds([routes[0].points[0], routes[0].points[0]]);
+        routes[0].points.forEach((p) => bounds.extend(p));
+        map.current.fitBounds(bounds, { padding: 60, maxZoom: 15 });
+      }
+    }
+  }, [routes, loaded]);
 
-  return <div ref={container} className="rounded-lg apptaxi-map" style={{ width: "100%", height }} />;
+  return <div ref={container} className="rounded-lg" style={{ width: "100%", height }} />;
 }
