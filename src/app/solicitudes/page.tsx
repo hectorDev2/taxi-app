@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/header";
 import { Plus, Search } from "lucide-react";
+import Pagination from "@/components/pagination";
 import { api } from "@/lib/mock-api";
 import { SkeletonTable } from "@/components/skeleton";
 
@@ -23,6 +24,8 @@ export default function SolicitudesPage() {
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
+  const [pagina, setPagina] = useState(1);
+  const porPagina = 10;
 
   useEffect(() => {
     api.solicitudes.list().then((list) => { setSolicitudes(list); setLoading(false); });
@@ -39,6 +42,11 @@ export default function SolicitudesPage() {
     }
     return true;
   });
+
+  useEffect(() => { setPagina(1); }, [busqueda, filtroEstado]);
+
+  const totalPaginas = Math.ceil(filtradas.length / porPagina);
+  const paginadas = filtradas.slice((pagina - 1) * porPagina, pagina * porPagina);
 
   return (
     <div>
@@ -93,9 +101,9 @@ export default function SolicitudesPage() {
               </tr>
             </thead>
             <tbody>
-              {filtradas.length === 0 ? (
+              {paginadas.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-8 text-gray-400 text-sm">No se encontraron solicitudes</td></tr>
-              ) : (filtradas.map((s) => (
+              ) : (paginadas.map((s) => (
                 <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{s.codigo}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{s.nombre_pasajero}</td>
@@ -115,9 +123,7 @@ export default function SolicitudesPage() {
               )))}
             </tbody>
           </table>
-          <div className="px-6 py-3 border-t border-gray-100 text-sm text-gray-500">
-            {filtradas.length} de {solicitudes.length} solicitudes
-          </div>
+          <Pagination currentPage={pagina} totalPages={totalPaginas} totalItems={solicitudes.length} filteredItems={filtradas.length} onPageChange={setPagina} />
         </div>
         )}
       </div>

@@ -5,6 +5,7 @@ import Header from "@/components/header";
 import { Car, Wifi, WifiOff } from "lucide-react";
 import { api } from "@/lib/mock-api";
 import MapboxMap from "@/components/map";
+import Pagination from "@/components/pagination";
 import { SkeletonCard, SkeletonTable, SkeletonMap } from "@/components/skeleton";
 
 const estadoBadge: Record<string, string> = {
@@ -31,6 +32,8 @@ export default function UnidadesPage() {
   const [loading, setLoading] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
+  const [pagina, setPagina] = useState(1);
+  const porPagina = 10;
 
   useEffect(() => {
     Promise.all([api.unidades.list(), api.unidades.getUbicaciones()]).then(([list, ubicaciones]) => {
@@ -50,6 +53,11 @@ export default function UnidadesPage() {
     if (filtroTipo && u.tipo_unidad !== filtroTipo) return false;
     return true;
   });
+
+  useEffect(() => { setPagina(1); }, [filtroEstado, filtroTipo]);
+
+  const totalPaginas = Math.ceil(filtradas.length / porPagina);
+  const paginadas = filtradas.slice((pagina - 1) * porPagina, pagina * porPagina);
 
   return (
     <div>
@@ -113,9 +121,9 @@ export default function UnidadesPage() {
               </tr>
             </thead>
             <tbody>
-              {filtradas.length === 0 ? (
+              {paginadas.length === 0 ? (
                 <tr><td colSpan={6} className="text-center py-8 text-gray-400 text-sm">No se encontraron unidades</td></tr>
-              ) : (filtradas.map((u) => {
+              ) : (paginadas.map((u) => {
                 const Icon = estadoIcon[u.estado_actual] || Wifi;
                 return (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -135,9 +143,7 @@ export default function UnidadesPage() {
               }))}
             </tbody>
           </table>
-          <div className="px-6 py-3 border-t border-gray-100 text-sm text-gray-500">
-            {filtradas.length} de {unidades.length} unidades
-          </div>
+          <Pagination currentPage={pagina} totalPages={totalPaginas} totalItems={unidades.length} filteredItems={filtradas.length} onPageChange={setPagina} />
         </div>
         )}
       </div>

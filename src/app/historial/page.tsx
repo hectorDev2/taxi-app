@@ -5,14 +5,18 @@ import Header from "@/components/header";
 import { Search, Download } from "lucide-react";
 import { api } from "@/lib/mock-api";
 import { SkeletonTable } from "@/components/skeleton";
+import Pagination from "@/components/pagination";
 
 export default function HistorialPage() {
   const [servicios, setServicios] = useState<any[]>([]);
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroFecha, setFiltroFecha] = useState("");
+  const [pagina, setPagina] = useState(1);
+  const porPagina = 10;
 
   useEffect(() => {
     Promise.all([api.solicitudes.getHistorial(), api.solicitudes.list()]).then(([hist, list]) => {
@@ -23,15 +27,18 @@ export default function HistorialPage() {
     });
   }, []);
 
-  const items = servicios.length > 0 ? servicios.map((s) => ({
-    id: s.id,
-    codigo: `S-${String(s.solicitud_id).padStart(3, "0")}`,
-    fecha: s.solicitud_id === 3 ? "19/05/2026" : "18/05/2026",
-    pasajero: s.solicitud_id === 3 ? "Pedro García" : "Anónimo",
-    origen: s.solicitud_id === 3 ? "Calle Real" : "Av. La Molina",
-    tarifa: s.tarifa_sugerida,
-    estado: s.estado_final,
-  })) : solicitudes.map((s) => ({
+  const items = servicios.length > 0 ? servicios.map((s) => {
+    const sol = solicitudes.find((x) => x.id === s.solicitud_id);
+    return {
+      id: s.id,
+      codigo: sol?.codigo || `S-${String(s.solicitud_id).padStart(3, "0")}`,
+      fecha: sol?.created_at?.split("T")[0] || "",
+      pasajero: sol?.nombre_pasajero || "",
+      origen: sol?.punto_recojo_texto || "",
+      tarifa: s.tarifa_final ?? s.tarifa_sugerida,
+      estado: s.estado_final,
+    };
+  }) : solicitudes.map((s) => ({
     id: s.id,
     codigo: s.codigo,
     fecha: s.created_at.split("T")[0],
@@ -50,6 +57,24 @@ export default function HistorialPage() {
     }
     return true;
   });
+
+  useEffect(() => { setPagina(1); }, [busqueda, filtroEstado, filtroFecha]);
+
+  const totalPaginas = Math.ceil(filtradas.length / porPagina);
+  const paginadas = filtradas.slice((pagina - 1) * porPagina, pagina * porPagina);
+
+  const handleExport = async () => {
+    setExporting(true);
+    const csv = await api.solicitudes.exportHistorialCSV();
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `historial-servicios-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExporting(false);
+  };
 
   return (
     <div>
@@ -84,9 +109,13 @@ export default function HistorialPage() {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
             />
           </div>
-          <button className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold px-4 py-2.5 rounded-lg transition-colors">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 font-semibold px-4 py-2.5 rounded-lg transition-colors"
+          >
             <Download className="w-5 h-5" />
-            Exportar
+            {exporting ? "Exportando..." : "Exportar"}
           </button>
         </div>
 
@@ -104,9 +133,9 @@ export default function HistorialPage() {
               </tr>
             </thead>
             <tbody>
-              {filtradas.length === 0 ? (
+              {paginadas.length === 0 ? (
                 <tr><td colSpan={6} className="text-center py-8 text-gray-400 text-sm">No se encontraron registros</td></tr>
-              ) : (filtradas.map((i) => (
+              ) : (paginadas.map((i) => (
                 <tr key={i.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{i.codigo}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{i.fecha}</td>
@@ -122,9 +151,7 @@ export default function HistorialPage() {
               )))}
             </tbody>
           </table>
-          <div className="px-6 py-3 border-t border-gray-100 text-sm text-gray-500">
-            {filtradas.length} de {items.length} registros
-          </div>
+          <Pagination currentPage={pagina} totalPages={totalPaginas} totalItems={items.length} filteredItems={filtradas.length} onPageChange={setPagina} />
         </div>
         )}
       </div>

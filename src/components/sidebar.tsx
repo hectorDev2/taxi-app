@@ -7,22 +7,28 @@ import {
   LayoutDashboard,
   Car,
   ClipboardList,
-  Map,
   History,
   Users,
   Settings,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import type { Usuario } from "@/lib/mock-data";
 
-const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Unidades", href: "/unidades", icon: Car },
-  { label: "Solicitudes", href: "/solicitudes", icon: ClipboardList },
-  { label: "Mapa", href: "/dashboard", icon: Map },
-  { label: "Historial", href: "/historial", icon: History },
-  { label: "Usuarios", href: "/usuarios", icon: Users },
-  { label: "Configuración", href: "/configuracion", icon: Settings },
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  roles: Usuario["rol"][];
+}
+
+const navItems: NavItem[] = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "operador", "conductor"] },
+  { label: "Unidades", href: "/unidades", icon: Car, roles: ["admin", "operador"] },
+  { label: "Solicitudes", href: "/solicitudes", icon: ClipboardList, roles: ["admin", "operador"] },
+  { label: "Historial", href: "/historial", icon: History, roles: ["admin", "operador"] },
+  { label: "Usuarios", href: "/usuarios", icon: Users, roles: ["admin"] },
+  { label: "Configuración", href: "/configuracion", icon: Settings, roles: ["admin", "operador"] },
 ];
 
 export default function Sidebar() {
@@ -34,6 +40,8 @@ export default function Sidebar() {
     logout();
     router.push("/");
   };
+
+  const items = navItems.filter((item) => user && item.roles.includes(user.rol));
 
   return (
     <aside className="w-[var(--sidebar-width)] bg-white border-r border-gray-200 flex flex-col h-screen">
@@ -48,7 +56,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;
           return (

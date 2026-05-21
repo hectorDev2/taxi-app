@@ -3,7 +3,7 @@ import {
   solicitudes, asignaciones, tarifasConfig,
   serviciosHistorial, cancelaciones,
   calcularTarifa, distanciaKm,
-  type Usuario, type Unidad, type Solicitud, type Cancelacion,
+  type Usuario, type Unidad, type Solicitud, type Cancelacion, type TarifaConfig,
   type UbicacionUnidad,
 } from "./mock-data";
 
@@ -18,7 +18,7 @@ function genId(items: { id: number }[]): number {
 export const api = {
   auth: {
     login(email: string, password: string) {
-      const user = usuarios.find((u) => u.email === email);
+      const user = usuarios.find((u) => u.email === email && u.estado === "activo");
       if (!user) return delay(null as unknown as Usuario);
       return delay(user);
     },
@@ -132,6 +132,14 @@ export const api = {
     getHistorial() {
       return delay([...serviciosHistorial]);
     },
+    exportHistorialCSV() {
+      const header = "Código,Fecha,Pasajero,Origen,Tarifa,Distancia,Duración,Estado";
+      const rows = serviciosHistorial.map((h) => {
+        const sol = solicitudes.find((s) => s.id === h.solicitud_id);
+        return `${sol?.codigo || ""},${sol?.created_at?.split("T")[0] || ""},"${sol?.nombre_pasajero || ""}","${sol?.punto_recojo_texto || ""}",${h.tarifa_final ?? h.tarifa_sugerida},${h.distancia_real_km ?? h.distancia_estimada_km} km,${h.duracion_real_min ?? h.duracion_estimada_min} min,${h.estado_final}`;
+      });
+      return delay([header, ...rows].join("\n"));
+    },
     getEstadisticas() {
       const libres = unidades.filter((u) => u.estado_actual === "libre").length;
       const ocupadas = unidades.filter((u) => u.estado_actual === "ocupado" || u.estado_actual === "asignado").length;
@@ -167,11 +175,22 @@ export const api = {
       usuarios.splice(idx, 1);
       return delay(true);
     },
+    exportCSV() {
+      const header = "Nombres,Email,Teléfono,Rol,Estado,Creado";
+      const rows = usuarios.map((u) => `${u.nombres},${u.email},${u.telefono},${u.rol},${u.estado},${u.created_at}`);
+      return delay([header, ...rows].join("\n"));
+    },
   },
 
   tarifas: {
     get() {
       return delay([...tarifasConfig]);
+    },
+    update(id: number, data: Partial<TarifaConfig>) {
+      const idx = tarifasConfig.findIndex((t) => t.id === id);
+      if (idx === -1) return delay(null);
+      tarifasConfig[idx] = { ...tarifasConfig[idx], ...data };
+      return delay(tarifasConfig[idx]);
     },
     calcular(tipo: string, distancia: number, duracion: number, nocturno: boolean) {
       return delay(calcularTarifa(tipo, distancia, duracion, nocturno));

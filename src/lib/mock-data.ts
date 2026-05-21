@@ -251,6 +251,10 @@ export const tarifasConfig: TarifaConfig[] = [
 export const serviciosHistorial: ServicioHistorial[] = [
   { id: 1, solicitud_id: 3, tarifa_sugerida: 22.00, tarifa_final: 22.00, distancia_estimada_km: 5.5, duracion_estimada_min: 25, distancia_real_km: 6.0, duracion_real_min: 50, estado_final: "completado" },
   { id: 2, solicitud_id: 9, tarifa_sugerida: 18.50, tarifa_final: 20.00, distancia_estimada_km: 4.0, duracion_estimada_min: 20, distancia_real_km: 4.5, duracion_real_min: 45, estado_final: "completado" },
+  { id: 3, solicitud_id: 5, tarifa_sugerida: 15.00, distancia_estimada_km: 3.2, duracion_estimada_min: 15, estado_final: "cancelada" },
+  { id: 4, solicitud_id: 1, tarifa_sugerida: 28.50, tarifa_final: 28.50, distancia_estimada_km: 7.0, duracion_estimada_min: 30, distancia_real_km: 7.5, duracion_real_min: 35, estado_final: "completado" },
+  { id: 5, solicitud_id: 2, tarifa_sugerida: 12.00, distancia_estimada_km: 2.0, duracion_estimada_min: 10, estado_final: "cancelada" },
+  { id: 6, solicitud_id: 10, tarifa_sugerida: 35.00, tarifa_final: 35.00, distancia_estimada_km: 9.0, duracion_estimada_min: 40, distancia_real_km: 8.8, duracion_real_min: 42, estado_final: "completado" },
 ];
 
 export const cancelaciones: Cancelacion[] = [

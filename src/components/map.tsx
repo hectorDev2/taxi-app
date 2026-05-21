@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.VITE_MAPBOX_TOKEN || "";
+const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
 interface Marker {
   lat: number; lng: number; color?: string; label?: string;

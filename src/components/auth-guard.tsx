@@ -3,16 +3,27 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import type { Usuario } from "@/lib/mock-data";
 
-export default function AuthGuard({ children }: { children: React.ReactNode }) {
+interface AuthGuardProps {
+  children: React.ReactNode;
+  allowedRoles?: Usuario["rol"][];
+}
+
+export default function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+    if (!user) {
       router.push("/");
+      return;
     }
-  }, [user, loading, router]);
+    if (allowedRoles && !allowedRoles.includes(user.rol)) {
+      router.push("/dashboard");
+    }
+  }, [user, loading, router, allowedRoles]);
 
   if (loading) {
     return (
@@ -23,6 +34,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return null;
+  if (allowedRoles && !allowedRoles.includes(user.rol)) return null;
 
   return <>{children}</>;
 }
