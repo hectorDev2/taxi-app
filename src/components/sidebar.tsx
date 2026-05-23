@@ -13,13 +13,13 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import type { Usuario } from "@/lib/mock-data";
+import type { AppUser } from "@/lib/services/types";
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
-  roles: Usuario["rol"][];
+  roles: AppUser["rol"][];
 }
 
 const navItems: NavItem[] = [

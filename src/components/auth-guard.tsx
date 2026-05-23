@@ -3,11 +3,11 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import type { Usuario } from "@/lib/mock-data";
+import type { AppUser } from "@/lib/services/types";
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  allowedRoles?: Usuario["rol"][];
+  allowedRoles?: AppUser["rol"][];
 }
 
 export default function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
