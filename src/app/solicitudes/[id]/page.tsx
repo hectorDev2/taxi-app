@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Phone, Car, Clock, User, X, Navigation, AlertTriangle } from "lucide-react";
-import { api } from "@/lib/mock-api";
+import { ArrowLeft, Phone, Car, Clock, User, X, Navigation, AlertTriangle, MapPinned } from "lucide-react";
+import { tripService } from "@/lib/services/trip-service";
+import { vehicleService } from "@/lib/services/vehicle-service";
+import { profileService } from "@/lib/services/profile-service";
+import { useTripsRealtime, useDriverLocationRealtime } from "@/lib/services/realtime";
 import MapboxMap, { fetchRoute } from "@/components/map";
 import { SkeletonLine, SkeletonMap } from "@/components/skeleton";
 import { useAuth } from "@/lib/auth-context";
@@ -30,30 +33,57 @@ export default function DetalleSolicitudPage() {
   const [showAsignar, setShowAsignar] = useState(false);
   const [showCancelar, setShowCancelar] = useState(false);
   const [motivoCancelacion, setMotivoCancelacion] = useState("");
+  const [asignando, setAsignando] = useState<string | null>(null);
+  const [cancelando, setCancelando] = useState(false);
   const [ruta, setRuta] = useState<[number, number][] | null>(null);
   const [marcadorUnidad, setMarcadorUnidad] = useState<{ lat: number; lng: number; color: string; label: string } | null>(null);
   const [unidadesCercanas, setUnidadesCercanas] = useState<any[]>([]);
+  const [cargandoUnidades, setCargandoUnidades] = useState(false);
 
   const cargar = () => {
-    const id = Number(params.id);
-    api.solicitudes.getById(id).then((s) => {
-      setSol(s);
-      if (s?.conductor_id) {
-        api.conductores.list().then((list) => {
-          const c = list.find((cond) => cond.user_id === s.conductor_id);
-          setConductor(c);
-        });
-      }
-      if (s?.unidad_id) api.unidades.getById(s.unidad_id).then(setUnidad);
-    });
+    const id = params.id as string;
+    tripService.getById(id)
+      .then((s) => {
+        setSol(s);
+        if (s?.conductor_id) {
+          profileService.list()
+            .then((list) => {
+              const c = list.find((p) => p.supabase_id === s.conductor_id);
+              setConductor(c || null);
+            })
+            .catch(() => {});
+        }
+        if (s?.unidad_id) {
+          vehicleService.getById(s.unidad_id).then(setUnidad).catch(() => {});
+        }
+      })
+      .catch(() => {});
   };
 
   useEffect(() => { cargar(); }, [params.id]);
 
+  // Realtime: recargar cuando cambie la solicitud
+  useTripsRealtime((payload) => {
+    if (payload.new?.id === params.id) {
+      cargar();
+    }
+  });
+
+  // Realtime: actualizar ubicación del conductor en vivo
+  useDriverLocationRealtime(sol?.conductor_id, (location) => {
+    setMarcadorUnidad({ lat: location.lat, lng: location.lng, color: "#3b82f6", label: "Unidad" });
+    if (sol?.longitud_recojo && sol?.latitud_recojo) {
+      fetchRoute([location.lng, location.lat], [sol.longitud_recojo, sol.latitud_recojo])
+        .then((pts) => setRuta(pts))
+        .catch(() => {});
+    }
+  });
+
+  // Ruta inicial cuando se monta la unidad
   useEffect(() => {
     if (sol?.unidad_id && sol?.latitud_recojo && sol?.longitud_recojo) {
       (async () => {
-        const ubi = await api.unidades.getUbicacion(sol.unidad_id);
+        const ubi = await vehicleService.getUbicacion(sol.unidad_id).catch(() => null);
         if (ubi) {
           setMarcadorUnidad({ lat: ubi.latitud, lng: ubi.longitud, color: "#3b82f6", label: "Unidad" });
           const pts = await fetchRoute([ubi.longitud, ubi.latitud], [sol.longitud_recojo, sol.latitud_recojo]);
@@ -65,28 +95,43 @@ export default function DetalleSolicitudPage() {
 
   const abrirAsignar = () => {
     setShowAsignar(true);
-    api.unidades.nearestUnits(sol.latitud_recojo, sol.longitud_recojo, sol.tipo_servicio).then(setUnidadesCercanas);
+    setCargandoUnidades(true);
+    vehicleService.nearestUnits(sol.latitud_recojo, sol.longitud_recojo, sol.tipo_servicio)
+      .then(setUnidadesCercanas)
+      .catch(() => {})
+      .finally(() => setCargandoUnidades(false));
   };
 
-  const asignarUnidad = async (unidadId: number) => {
+  const asignarUnidad = async (unidadId: string) => {
     const u = unidadesCercanas.find((u) => u.id === unidadId);
-    const conductores = await api.conductores.list();
-    const c = conductores.find((c) => c.unidad_id === unidadId);
-    const usuarios = await api.usuarios.list();
-    const conductorUser = usuarios.find((usr) => usr.id === c?.user_id);
-    await api.solicitudes.assign(sol.id, unidadId, conductorUser?.id || 1, user?.id || 2);
-    setShowAsignar(false);
-    toast(`Unidad ${u.codigo} asignada a ${sol.codigo}`);
-    cargar();
+    if (!u || !user) return;
+    setAsignando(unidadId);
+    try {
+      await tripService.assign(sol.id, unidadId, u.conductor_id || user.id, user.supabase_id || user.id);
+      setShowAsignar(false);
+      toast(`Unidad ${u.codigo} asignada a ${sol.codigo}`);
+      cargar();
+    } catch (e: any) {
+      toast(e.message, "error");
+    } finally {
+      setAsignando(null);
+    }
   };
 
   const cancelarSolicitud = async () => {
     if (!motivoCancelacion) return;
-    await api.solicitudes.cancel(sol.id, motivoCancelacion, "operador");
-    setShowCancelar(false);
-    setMotivoCancelacion("");
-    toast(`Solicitud ${sol.codigo} cancelada`);
-    cargar();
+    setCancelando(true);
+    try {
+      await tripService.cancel(sol.id, motivoCancelacion, "operator");
+      setShowCancelar(false);
+      setMotivoCancelacion("");
+      toast(`Solicitud ${sol.codigo} cancelada`);
+      cargar();
+    } catch (e: any) {
+      toast(e.message, "error");
+    } finally {
+      setCancelando(false);
+    }
   };
 
   if (!sol) {
@@ -113,6 +158,14 @@ export default function DetalleSolicitudPage() {
       </div>
     );
   }
+
+  const marcadores = [
+    { lat: sol.latitud_recojo, lng: sol.longitud_recojo, color: "#eab308", label: "Punto de recojo" },
+    ...(sol.latitud_destino && sol.longitud_destino
+      ? [{ lat: sol.latitud_destino, lng: sol.longitud_destino, color: "#ef4444", label: "Destino" }
+    ] : []),
+    ...(unidad && marcadorUnidad ? [marcadorUnidad] : []),
+  ];
 
   return (
     <div>
@@ -152,14 +205,26 @@ export default function DetalleSolicitudPage() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Punto de Recojo</h3>
-            <div className="mb-4">
-              <p className="text-sm text-gray-900">{sol.punto_recojo_texto}</p>
+            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Recorrido</h3>
+            <div className="space-y-3 mb-4">
+              <div className="flex items-start gap-3">
+                <div className="w-3 h-3 mt-1 rounded-full bg-yellow-400 shrink-0" />
+                <div>
+                  <p className="text-xs text-gray-400">Punto de recojo</p>
+                  <p className="text-sm text-gray-900">{sol.punto_recojo_texto}</p>
+                </div>
+              </div>
+              {sol.punto_destino_texto && (
+                <div className="flex items-start gap-3">
+                  <div className="w-3 h-3 mt-1 rounded-full bg-red-400 shrink-0" />
+                  <div>
+                    <p className="text-xs text-gray-400">Destino</p>
+                    <p className="text-sm text-gray-900">{sol.punto_destino_texto}</p>
+                  </div>
+                </div>
+              )}
             </div>
-            <MapboxMap height="250px" markers={[
-              { lat: sol.latitud_recojo, lng: sol.longitud_recojo, color: "#eab308", label: "Punto de recojo" },
-              ...unidad && marcadorUnidad ? [marcadorUnidad] : [],
-            ]} routes={ruta ? [{ points: ruta, color: "#eab308" }] : []} />
+            <MapboxMap height="250px" markers={marcadores} routes={ruta ? [{ points: ruta, color: "#eab308" }] : []} />
           </div>
         </div>
 
@@ -197,17 +262,33 @@ export default function DetalleSolicitudPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">{conductor.nombres || "Sin nombre"}</p>
-                  <p className="text-xs text-gray-500">DNI: {conductor.dni} · Lic: {conductor.licencia}</p>
+                  <p className="text-xs text-gray-500">{conductor.email || conductor.telefono ? `${conductor.email} · ${conductor.telefono}` : ""}</p>
                 </div>
               </div>
             </div>
           )}
 
-          {(sol.estado === "pendiente" || sol.estado === "asignada" || sol.estado === "aceptada") && (
+          {sol.estado !== "servicio_completado" && sol.estado !== "cancelada" && (
             <div className="space-y-2">
               {sol.estado === "pendiente" && (
                 <button onClick={abrirAsignar} className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold py-2.5 rounded-lg transition-colors">
                   Asignar Unidad
+                </button>
+              )}
+              {sol.estado === "servicio_iniciado" && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await tripService.updateStatus(sol.id, "servicio_completado", user?.supabase_id);
+                      toast(`Viaje ${sol.codigo} completado`);
+                      cargar();
+                    } catch (e: any) {
+                      toast(e.message, "error");
+                    }
+                  }}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 rounded-lg transition-colors"
+                >
+                  Completar Viaje
                 </button>
               )}
               <button onClick={() => setShowCancelar(true)} className="w-full border border-red-300 text-red-600 hover:bg-red-50 font-medium py-2.5 rounded-lg transition-colors text-sm">
@@ -256,10 +337,10 @@ export default function DetalleSolicitudPage() {
                 </button>
                 <button
                   onClick={cancelarSolicitud}
-                  disabled={!motivoCancelacion}
+                  disabled={!motivoCancelacion || cancelando}
                   className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:bg-red-200 text-white text-sm font-medium rounded-lg transition-colors"
                 >
-                  Confirmar Cancelación
+                  {cancelando ? "Cancelando..." : "Confirmar Cancelaci\u00f3n"}
                 </button>
               </div>
             </div>
@@ -282,7 +363,9 @@ export default function DetalleSolicitudPage() {
                 Unidades libres más cercanas al punto de recojo ({sol.punto_recojo_texto})
               </p>
 
-              {unidadesCercanas.length === 0 ? (
+              {cargandoUnidades ? (
+                <p className="text-sm text-gray-400 text-center py-8">Buscando unidades cercanas...</p>
+              ) : unidadesCercanas.length === 0 ? (
                 <p className="text-sm text-red-500">No hay unidades libres disponibles para este tipo de servicio</p>
               ) : (
                 <div className="space-y-3">
@@ -303,9 +386,10 @@ export default function DetalleSolicitudPage() {
                       </div>
                       <button
                         onClick={() => asignarUnidad(u.id)}
-                        className="px-4 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-sm font-medium rounded-lg transition-colors"
+                        disabled={asignando === u.id}
+                        className="px-4 py-1.5 bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 text-sm font-medium rounded-lg transition-colors"
                       >
-                        Asignar
+                        {asignando === u.id ? "Asignando..." : "Asignar"}
                       </button>
                     </div>
                   ))}

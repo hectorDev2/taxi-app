@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, MapPin } from "lucide-react";
-import { api } from "@/lib/mock-api";
+import { ArrowLeft, MapPin, MapPinned } from "lucide-react";
+import { tripService } from "@/lib/services/trip-service";
+import { vehicleService } from "@/lib/services/vehicle-service";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/toast";
 import MapboxMap from "@/components/map";
@@ -12,40 +13,60 @@ export default function NuevaSolicitudPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
   const [unidades, setUnidades] = useState<any[]>([]);
+  const [pickupLat, setPickupLat] = useState(-12.0464);
+  const [pickupLng, setPickupLng] = useState(-77.0428);
   const [form, setForm] = useState({
     nombre_pasajero: "",
     telefono_pasajero: "",
     punto_recojo_texto: "",
+    punto_destino_texto: "",
     tipo_servicio: "pasajeros",
     asignar_ahora: false,
     unidad_id: "",
   });
 
   useEffect(() => {
-    api.unidades.nearestUnits(-12.0464, -77.0428).then(setUnidades);
-  }, []);
+    vehicleService.nearestUnits(pickupLat, pickupLng)
+      .then(setUnidades)
+      .catch(() => {});
+  }, [pickupLat, pickupLng]);
+
+  const handleMapClick = (lng: number, lat: number) => {
+    setPickupLng(lng);
+    setPickupLat(lat);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const sol = await api.solicitudes.create({
-      nombre_pasajero: form.nombre_pasajero,
-      telefono_pasajero: form.telefono_pasajero,
-      punto_recojo_texto: form.punto_recojo_texto,
-      tipo_servicio: form.tipo_servicio as "pasajeros" | "carga_pasajeros",
-      operador_id: user?.id || 2,
-    });
+    if (!user) return;
+    setSaving(true);
+    try {
+      const sol = await tripService.create({
+        passenger_name: form.nombre_pasajero,
+        passenger_phone: form.telefono_pasajero,
+        pickup_address: form.punto_recojo_texto,
+        pickup_latitude: pickupLat,
+        pickup_longitude: pickupLng,
+        dropoff_address: form.punto_destino_texto || undefined,
+        service_type: form.tipo_servicio === "carga_pasajeros" ? "cargo_passengers" : "passengers",
+        channel: "phone",
+        operator_id: user.supabase_id || user.id,
+      });
 
-    if (form.asignar_ahora && form.unidad_id && sol) {
-      const unidad = unidades.find((u) => u.id === Number(form.unidad_id));
-      const conductorId = unidad?.conductor_asignado
-        ? unidad.id
-        : 0;
-      await api.solicitudes.assign(sol.id, Number(form.unidad_id), conductorId || 1, user?.id || 2);
+      if (form.asignar_ahora && form.unidad_id && sol) {
+        const unidad = unidades.find((u) => u.id === form.unidad_id);
+        await tripService.assign(sol.id, form.unidad_id, unidad?.conductor_id || user.id, user.supabase_id || user.id);
+      }
+
+      toast("Solicitud creada exitosamente");
+      router.push("/solicitudes");
+    } catch (e: any) {
+      toast(e.message, "error");
+    } finally {
+      setSaving(false);
     }
-
-    toast("Solicitud creada exitosamente");
-    router.push("/solicitudes");
   };
 
   const unidadesLibres = unidades.filter((u: any) => {
@@ -109,7 +130,31 @@ export default function NuevaSolicitudPage() {
               </div>
             </div>
 
-            <MapboxMap height="200px" interactive={false} />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Destino</label>
+              <div className="relative">
+                <MapPinned className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={form.punto_destino_texto}
+                  onChange={(e) => setForm({ ...form, punto_destino_texto: e.target.value })}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
+                  placeholder="Ej: Av. Benavides 456, Surco"
+                />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-400 mb-2">Haz clic en el mapa para ajustar el punto de recojo</p>
+              <MapboxMap
+                height="250px"
+                interactive
+                onClick={handleMapClick}
+                markers={[{ lat: pickupLat, lng: pickupLng, color: "#eab308", label: "Recojo" }]}
+                center={[pickupLng, pickupLat]}
+                zoom={14}
+              />
+            </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
@@ -188,9 +233,10 @@ export default function NuevaSolicitudPage() {
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold rounded-lg transition-colors"
+              disabled={saving}
+              className="px-6 py-2.5 bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 font-semibold rounded-lg transition-colors"
             >
-              Crear Solicitud
+              {saving ? "Creando..." : "Crear Solicitud"}
             </button>
           </div>
         </form>

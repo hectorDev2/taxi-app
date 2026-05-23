@@ -22,6 +22,7 @@ interface Props {
   center?: [number, number];
   zoom?: number;
   interactive?: boolean;
+  onClick?: (lng: number, lat: number) => void;
 }
 
 function generateCurvedPath(origin: [number, number], dest: [number, number], steps = 30): [number, number][] {
@@ -96,6 +97,7 @@ export default function MapboxMap({
   center = [-77.0428, -12.0464],
   zoom = 12,
   interactive = true,
+  onClick,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -114,6 +116,9 @@ export default function MapboxMap({
     });
     m.addControl(new mapboxgl.NavigationControl(), "top-right");
     m.on("load", () => setLoaded(true));
+    if (interactive && onClick) {
+      m.on("click", (e) => onClick(e.lngLat.lng, e.lngLat.lat));
+    }
     map.current = m;
   }, []);
 
