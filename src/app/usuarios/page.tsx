@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/header";
 import { UserPlus, Edit2, Trash2, X } from "lucide-react";
-import { api } from "@/lib/mock-api";
+import { profileService } from "@/lib/services/profile-service";
 import { useToast } from "@/components/toast";
 import { SkeletonTable } from "@/components/skeleton";
 import Pagination from "@/components/pagination";
@@ -34,12 +34,19 @@ export default function UsuariosPage() {
   const { toast } = useToast();
 
   const [showModal, setShowModal] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<UserForm>(emptyForm);
+  const [saving, setSaving] = useState(false);
   const [pagina, setPagina] = useState(1);
   const porPagina = 10;
 
-  const cargar = () => api.usuarios.list().then((list) => { setUsuarios(list); setLoading(false); });
+  const cargar = () => {
+    setLoading(true);
+    profileService.list()
+      .then((list) => { setUsuarios(list); })
+      .catch((e) => { toast(e.message, "error"); })
+      .finally(() => setLoading(false));
+  };
   useEffect(() => { cargar(); }, []);
 
   const abrirNuevo = () => {
@@ -56,21 +63,43 @@ export default function UsuariosPage() {
 
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editId) {
-      await api.usuarios.update(editId, form);
-      toast(`Usuario "${form.nombres}" actualizado`);
-    } else {
-      await api.usuarios.create(form);
-      toast(`Usuario "${form.nombres}" creado`);
+    setSaving(true);
+    try {
+      if (editId) {
+        await profileService.update(editId, {
+          nombres: form.nombres,
+          telefono: form.telefono,
+          rol: form.rol,
+          estado: form.estado,
+        });
+        toast(`Usuario "${form.nombres}" actualizado`);
+      } else {
+        await profileService.create({
+          email: form.email,
+          password: "Temp1234!",
+          nombres: form.nombres,
+          telefono: form.telefono,
+          rol: form.rol,
+        });
+        toast(`Usuario "${form.nombres}" creado`);
+      }
+      setShowModal(false);
+      cargar();
+    } catch (e: any) {
+      toast(e.message, "error");
+    } finally {
+      setSaving(false);
     }
-    setShowModal(false);
-    cargar();
   };
 
-  const eliminar = async (id: number, nombre: string) => {
-    await api.usuarios.delete(id);
-    toast(`Usuario "${nombre}" eliminado`);
-    cargar();
+  const eliminar = async (id: string, nombre: string) => {
+    try {
+      await profileService.delete(id);
+      toast(`Usuario "${nombre}" eliminado`);
+      cargar();
+    } catch (e: any) {
+      toast(e.message, "error");
+    }
   };
 
   const filtrados = usuarios.filter((u) => {
@@ -204,8 +233,8 @@ export default function UsuariosPage() {
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
                   Cancelar
                 </button>
-                <button type="submit" className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-sm font-medium rounded-lg transition-colors">
-                  {editId ? "Guardar Cambios" : "Crear Usuario"}
+                <button type="submit" disabled={saving} className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 text-sm font-medium rounded-lg transition-colors">
+                  {saving ? "Guardando..." : editId ? "Guardar Cambios" : "Crear Usuario"}
                 </button>
               </div>
             </form>

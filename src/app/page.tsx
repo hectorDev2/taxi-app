@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Car } from "lucide-react";
+import { Car, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/toast";
 
@@ -11,7 +11,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [resetting, setResetting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const { login, resetPassword } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -22,11 +24,26 @@ export default function LoginPage() {
     const ok = await login(email, password);
     setLoading(false);
     if (ok) {
-      toast("Inicio de sesión exitoso");
+      toast("Inicio de sesi\u00f3n exitoso");
       router.push("/dashboard");
     } else {
       setError("Credenciales incorrectas");
       toast("Credenciales incorrectas", "error");
+    }
+  };
+
+  const handleReset = async () => {
+    if (!email) {
+      toast("Ingresa tu correo primero", "error");
+      return;
+    }
+    setResetting(true);
+    const err = await resetPassword(email);
+    setResetting(false);
+    if (err) {
+      toast(err, "error");
+    } else {
+      toast("Revisa tu correo para restablecer la contrase\u00f1a");
     }
   };
 
@@ -38,36 +55,56 @@ export default function LoginPage() {
             <Car className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">AppTaxi</h1>
-          <p className="text-sm text-gray-500">Panel de Gestión</p>
+          <p className="text-sm text-gray-500">Panel de Gesti\u00f3n</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Correo electrónico
+              Correo electr\u00f3nico
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
-              placeholder="admin@apptaxi.com"
+              placeholder="tu@correo.com"
               required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Contraseña
+              Contrase\u00f1a
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
-              placeholder="••••••••"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
+                placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={resetting}
+              className="text-sm text-yellow-600 hover:text-yellow-700 hover:underline disabled:text-gray-400"
+            >
+              {resetting ? "Enviando..." : "\u00bfOlvidaste tu contrase\u00f1a?"}
+            </button>
           </div>
 
           {error && (
@@ -79,13 +116,8 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 font-semibold py-2.5 rounded-lg transition-colors"
           >
-            {loading ? "Ingresando..." : "Iniciar sesión"}
+            {loading ? "Ingresando..." : "Iniciar sesi\u00f3n"}
           </button>
-
-          <p className="text-xs text-gray-400 text-center mt-4">
-            Usuarios de prueba: admin@apptaxi.com / maria@apptaxi.com / carlos@apptaxi.com
-            <br />(cualquier contraseña)
-          </p>
         </form>
       </div>
     </div>
