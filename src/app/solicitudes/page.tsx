@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/header";
 import { Plus, Search } from "lucide-react";
 import Pagination from "@/components/pagination";
-import { api } from "@/lib/mock-api";
+import { tripService } from "@/lib/services/trip-service";
+import { useTripsRealtime } from "@/lib/services/realtime";
 import { SkeletonTable } from "@/components/skeleton";
 
 const estadoBadge: Record<string, string> = {
@@ -28,8 +29,15 @@ export default function SolicitudesPage() {
   const porPagina = 10;
 
   useEffect(() => {
-    api.solicitudes.list().then((list) => { setSolicitudes(list); setLoading(false); });
+    tripService.list()
+      .then((list) => { setSolicitudes(list); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
+
+  useTripsRealtime(() => {
+    tripService.list().then(setSolicitudes).catch(() => {});
+  });
 
   const filtradas = solicitudes.filter((s) => {
     if (filtroEstado && s.estado !== filtroEstado) return false;

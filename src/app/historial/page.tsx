@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/header";
 import { Search, Download } from "lucide-react";
-import { api } from "@/lib/mock-api";
+import { tripService } from "@/lib/services/trip-service";
 import { SkeletonTable } from "@/components/skeleton";
 import Pagination from "@/components/pagination";
 
@@ -19,9 +19,14 @@ export default function HistorialPage() {
   const porPagina = 10;
 
   useEffect(() => {
-    Promise.all([api.solicitudes.getHistorial(), api.solicitudes.list()]).then(([hist, list]) => {
+    Promise.all([
+      tripService.getHistorial().catch(() => []),
+      tripService.list().catch(() => []),
+    ]).then(([hist, list]) => {
       setServicios(hist);
-      const completadas = list.filter((s) => s.estado === "servicio_completado" || s.estado === "cancelada");
+      const completadas = (list as any[]).filter(
+        (s: any) => s.estado === "servicio_completado" || s.estado === "cancelada"
+      );
       setSolicitudes(completadas);
       setLoading(false);
     });
@@ -65,15 +70,20 @@ export default function HistorialPage() {
 
   const handleExport = async () => {
     setExporting(true);
-    const csv = await api.solicitudes.exportHistorialCSV();
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `historial-servicios-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setExporting(false);
+    try {
+      const csv = await tripService.exportHistorialCSV();
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `historial-servicios-${new Date().toISOString().split("T")[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silent
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (

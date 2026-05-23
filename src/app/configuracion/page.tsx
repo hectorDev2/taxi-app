@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/header";
 import { Save, Loader2 } from "lucide-react";
-import { api } from "@/lib/mock-api";
+import { tariffService } from "@/lib/services/tariff-service";
 import { useToast } from "@/components/toast";
-import type { TarifaConfig } from "@/lib/mock-data";
+import type { AppTariffConfig } from "@/lib/services/types";
 
 export default function ConfiguracionPage() {
   const { toast } = useToast();
-  const [tarifas, setTarifas] = useState<TarifaConfig | null>(null);
+  const [tarifas, setTarifas] = useState<AppTariffConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -22,32 +22,39 @@ export default function ConfiguracionPage() {
   const [retencionHist, setRetencionHist] = useState("30");
 
   useEffect(() => {
-    api.tarifas.get().then((list) => {
-      if (list.length > 0) {
-        const t = list[0];
-        setTarifas(t);
-        setTarifaBase(t.tarifa_base);
-        setCostoKm(t.costo_por_km);
-        setCostoMin(t.costo_por_minuto);
-        setRecargoNocturno(t.recargo_nocturno);
-        setRecargoTipo(t.recargo_tipo_unidad);
-      }
-      setLoading(false);
-    });
+    tariffService.get()
+      .then((list) => {
+        if (list.length > 0) {
+          const t = list[0];
+          setTarifas(t);
+          setTarifaBase(t.tarifa_base);
+          setCostoKm(t.costo_por_km);
+          setCostoMin(t.costo_por_minuto);
+          setRecargoNocturno(t.recargo_nocturno);
+          setRecargoTipo(t.recargo_tipo_unidad);
+        }
+      })
+      .catch(() => toast("Error al cargar configuraci\u00f3n", "error"))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSave = async () => {
     if (!tarifas) return;
     setSaving(true);
-    await api.tarifas.update(tarifas.id, {
-      tarifa_base: tarifaBase,
-      costo_por_km: costoKm,
-      costo_por_minuto: costoMin,
-      recargo_nocturno: recargoNocturno,
-      recargo_tipo_unidad: recargoTipo,
-    });
-    setSaving(false);
-    toast("Configuración guardada exitosamente");
+    try {
+      await tariffService.update(tarifas.id, {
+        tarifa_base: tarifaBase,
+        costo_por_km: costoKm,
+        costo_por_minuto: costoMin,
+        recargo_nocturno: recargoNocturno,
+        recargo_tipo_unidad: recargoTipo,
+      });
+      toast("Configuraci\u00f3n guardada exitosamente");
+    } catch {
+      toast("Error al guardar configuraci\u00f3n", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {

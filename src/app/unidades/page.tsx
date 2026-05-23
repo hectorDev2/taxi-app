@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Header from "@/components/header";
-import { Car, Wifi, WifiOff } from "lucide-react";
-import { api } from "@/lib/mock-api";
+import { Car, Plus, Edit2, Trash2, X, Wifi, WifiOff, User } from "lucide-react";
+import { vehicleService } from "@/lib/services/vehicle-service";
+import { profileService } from "@/lib/services/profile-service";
+import { useVehiclesRealtime } from "@/lib/services/realtime";
+import { useToast } from "@/components/toast";
 import MapboxMap from "@/components/map";
 import Pagination from "@/components/pagination";
 import { SkeletonCard, SkeletonTable, SkeletonMap } from "@/components/skeleton";
@@ -26,27 +29,132 @@ const estadoIcon: Record<string, React.ElementType> = {
   desconectado: WifiOff,
 };
 
+interface VehicleForm {
+  codigo: string;
+  placa: string;
+  marca: string;
+  modelo: string;
+  anio: string;
+  tipo_unidad: "pasajeros" | "carga_pasajeros";
+  capacidad: string;
+  conductor_id: string;
+}
+
+const emptyForm: VehicleForm = {
+  codigo: "", placa: "", marca: "", modelo: "", anio: "",
+  tipo_unidad: "pasajeros", capacidad: "4", conductor_id: "",
+};
+
 export default function UnidadesPage() {
+  const { toast } = useToast();
   const [unidades, setUnidades] = useState<any[]>([]);
   const [marcadores, setMarcadores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [conductores, setConductores] = useState<any[]>([]);
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [pagina, setPagina] = useState(1);
   const porPagina = 10;
 
-  useEffect(() => {
-    Promise.all([api.unidades.list(), api.unidades.getUbicaciones()]).then(([list, ubicaciones]) => {
-      setUnidades(list);
-      const markers = ubicaciones.map((u: any) => ({
+  const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState<VehicleForm>(emptyForm);
+  const [saving, setSaving] = useState(false);
+
+  const cargarDatos = () => {
+    Promise.all([
+      vehicleService.list().catch(() => []),
+      vehicleService.getUbicaciones().catch(() => []),
+    ]).then(([list, ubicaciones]) => {
+      setUnidades(list as any[]);
+      const markers = (ubicaciones as any[]).map((u: any) => ({
         lat: u.latitud, lng: u.longitud,
-        color: u.unidad_id === 2 ? "#3b82f6" : "#22c55e",
-        label: `Unidad ${u.unidad_id}`,
+        color: "#22c55e",
+        label: u.codigo || `Unidad ${u.unidad_id?.slice(0, 4)}`,
       }));
       setMarcadores(markers);
       setLoading(false);
     });
+  };
+
+  useEffect(() => { cargarDatos(); }, []);
+
+  useVehiclesRealtime(cargarDatos);
+
+  useEffect(() => {
+    profileService.list().then((list) => {
+      setConductores(list.filter((u) => u.rol === "conductor"));
+    }).catch(() => {});
   }, []);
+
+  const abrirNuevo = () => {
+    setEditId(null);
+    setForm(emptyForm);
+    setShowModal(true);
+  };
+
+  const abrirEditar = (u: any) => {
+    setEditId(u.id);
+    setForm({
+      codigo: u.codigo || "",
+      placa: u.placa || "",
+      marca: u.marca || "",
+      modelo: u.modelo || "",
+      anio: u.anio ? String(u.anio) : "",
+      tipo_unidad: u.tipo_unidad,
+      capacidad: String(u.capacidad || 4),
+      conductor_id: u.conductor_id || "",
+    });
+    setShowModal(true);
+  };
+
+  const guardar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      if (editId) {
+        await vehicleService.update(editId, {
+          codigo: form.codigo,
+          placa: form.placa,
+          marca: form.marca || undefined,
+          modelo: form.modelo || undefined,
+          anio: form.anio ? Number(form.anio) : undefined,
+          tipo_unidad: form.tipo_unidad,
+          capacidad: Number(form.capacidad),
+        });
+        toast("Unidad actualizada");
+      } else {
+        await vehicleService.create({
+          codigo: form.codigo,
+          placa: form.placa,
+          marca: form.marca || undefined,
+          modelo: form.modelo || undefined,
+          anio: form.anio ? Number(form.anio) : undefined,
+          tipo_unidad: form.tipo_unidad,
+          capacidad: Number(form.capacidad),
+          conductor_id: form.conductor_id,
+        });
+        toast("Unidad creada");
+      }
+      setShowModal(false);
+      cargarDatos();
+    } catch (e: any) {
+      toast(e.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const eliminar = async (id: string, codigo: string) => {
+    if (!window.confirm(`¿Eliminar unidad ${codigo}?`)) return;
+    try {
+      await vehicleService.delete(id);
+      toast(`Unidad ${codigo} eliminada`);
+      cargarDatos();
+    } catch (e: any) {
+      toast(e.message, "error");
+    }
+  };
 
   const filtradas = unidades.filter((u) => {
     if (filtroEstado && u.estado_actual !== filtroEstado) return false;
@@ -85,26 +193,35 @@ export default function UnidadesPage() {
           {loading ? <SkeletonMap /> : <MapboxMap height="300px" markers={marcadores} />}
         </div>
 
-        <div className="flex gap-3 mb-6">
-          <select
-            value={filtroEstado}
-            onChange={(e) => setFiltroEstado(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex gap-3">
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
+            >
+              <option value="">Todos los estados</option>
+              {Object.keys(estadoBadge).map((k) => (
+                <option key={k} value={k}>{k.replace(/_/g, " ")}</option>
+              ))}
+            </select>
+            <select
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
+            >
+              <option value="">Todos los tipos</option>
+              <option value="pasajeros">Pasajeros</option>
+              <option value="carga_pasajeros">Carga + Pasajeros</option>
+            </select>
+          </div>
+          <button
+            onClick={abrirNuevo}
+            className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold px-4 py-2.5 rounded-lg transition-colors"
           >
-            <option value="">Todos los estados</option>
-            {Object.keys(estadoBadge).map((k) => (
-              <option key={k} value={k}>{k.replace(/_/g, " ")}</option>
-            ))}
-          </select>
-          <select
-            value={filtroTipo}
-            onChange={(e) => setFiltroTipo(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
-          >
-            <option value="">Todos los tipos</option>
-            <option value="pasajeros">Pasajeros</option>
-            <option value="carga_pasajeros">Carga + Pasajeros</option>
-          </select>
+            <Plus className="w-5 h-5" />
+            Nueva Unidad
+          </button>
         </div>
 
         {loading ? <SkeletonTable rows={6} /> : (
@@ -114,21 +231,24 @@ export default function UnidadesPage() {
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Unidad</th>
                 <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Placa</th>
+                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Marca / Modelo</th>
                 <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Tipo</th>
                 <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Capacidad</th>
                 <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Estado</th>
                 <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Conductor</th>
+                <th className="text-right px-6 py-3 text-sm font-semibold text-gray-600">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {paginadas.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-gray-400 text-sm">No se encontraron unidades</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-gray-400 text-sm">No se encontraron unidades</td></tr>
               ) : (paginadas.map((u) => {
                 const Icon = estadoIcon[u.estado_actual] || Wifi;
                 return (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{u.codigo}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{u.placa}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{u.marca ? `${u.marca} ${u.modelo || ""}`.trim() : "—"}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{u.tipo_unidad === "pasajeros" ? "Pasajeros" : "Carga + Pasajeros"}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{u.capacidad} asientos</td>
                     <td className="px-6 py-4">
@@ -138,6 +258,16 @@ export default function UnidadesPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{u.conductor_asignado || "—"}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => abrirEditar(u)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                          <Edit2 className="w-4 h-4 text-gray-500" />
+                        </button>
+                        <button onClick={() => eliminar(u.id, u.codigo)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 className="w-4 h-4 text-red-400" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               }))}
@@ -147,6 +277,75 @@ export default function UnidadesPage() {
         </div>
         )}
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">{editId ? "Editar Unidad" : "Nueva Unidad"}</h3>
+              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <form onSubmit={guardar} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
+                  <input type="text" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: U-001" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Placa</label>
+                  <input type="text" value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: ABC-123" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
+                  <input type="text" value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: Toyota" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
+                  <input type="text" value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: Corolla" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
+                  <input type="number" value={form.anio} onChange={(e) => setForm({ ...form, anio: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="2024" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacidad</label>
+                  <input type="number" value={form.capacidad} onChange={(e) => setForm({ ...form, capacidad: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Unidad</label>
+                <select value={form.tipo_unidad} onChange={(e) => setForm({ ...form, tipo_unidad: e.target.value as VehicleForm["tipo_unidad"] })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
+                  <option value="pasajeros">Pasajeros</option>
+                  <option value="carga_pasajeros">Carga + Pasajeros</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Conductor asignado</label>
+                <select value={form.conductor_id} onChange={(e) => setForm({ ...form, conductor_id: e.target.value })} required={!editId} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
+                  <option value="">Seleccione un conductor</option>
+                  {conductores.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nombres} ({c.email})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3 justify-end pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={saving} className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 text-sm font-medium rounded-lg transition-colors">
+                  {saving ? "Guardando..." : editId ? "Guardar Cambios" : "Crear Unidad"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
