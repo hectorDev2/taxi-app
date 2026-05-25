@@ -157,7 +157,7 @@ export default function MapboxMap({
           if (popupRef.current) popupRef.current.remove();
           const popup = new mapboxgl.Popup({ offset: 25, closeButton: false })
             .setLngLat([m.lng, m.lat])
-            .setHTML(m.popupHtml)
+            .setHTML(m.popupHtml!)
             .addTo(map.current!);
           popupRef.current = popup;
         });
