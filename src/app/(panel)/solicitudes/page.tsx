@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/header";
 import { Plus, Search } from "lucide-react";
@@ -20,7 +20,7 @@ const estadoBadge: Record<string, string> = {
   cancelada: "bg-red-100 text-red-700",
 };
 
-export default function SolicitudesPage() {
+function SolicitudesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const detalleId = searchParams.get("id");
@@ -145,5 +145,13 @@ export default function SolicitudesPage() {
         <DetalleModal id={detalleId} onClose={() => router.push("/solicitudes")} />
       )}
     </>
+  );
+}
+
+export default function SolicitudesPage() {
+  return (
+    <Suspense fallback={null}>
+      <SolicitudesContent />
+    </Suspense>
   );
 }
