@@ -105,7 +105,6 @@ export default function DetalleModal({
     setAsignando(unidadId);
     try {
       await tripService.assign(sol.id, unidadId, u.conductor_id || user.id, user.supabase_id || user.id);
-      setShowAsignar(false);
       toast(`Unidad ${u.codigo} asignada a ${sol.codigo}`);
       cargar();
     } catch (e: any) {
