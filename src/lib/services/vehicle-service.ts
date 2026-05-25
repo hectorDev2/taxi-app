@@ -165,6 +165,8 @@ export const vehicleService = {
         conductor_asignado: (d as any).full_name,
         distancia: (d as any).distance_km,
         conductor_id: (d as any).id,
+        latitud: (d as any).current_latitude,
+        longitud: (d as any).current_longitude,
       }));
   },
 

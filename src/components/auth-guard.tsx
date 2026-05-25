@@ -25,16 +25,5 @@ export default function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
     }
   }, [user, loading, router, allowedRoles]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen text-gray-400">
-        Cargando...
-      </div>
-    );
-  }
-
-  if (!user) return null;
-  if (allowedRoles && !allowedRoles.includes(user.rol)) return null;
-
   return <>{children}</>;
 }

@@ -20,19 +20,24 @@ const AuthContext = createContext<AuthContextType>({
   resetPassword: async () => null,
 });
 
-function mapProfileToUsuario(profile: { id: string; full_name: string | null; email: string; phone: string | null; role: string }): AppUser {
+function mapSessionToUsuario(session: {
+  id: string;
+  email?: string;
+  user_metadata?: { full_name?: string; role?: string; phone?: string };
+  phone?: string;
+}): AppUser {
   const roleMap: Record<string, AppUser["rol"]> = {
     admin: "admin",
     operator: "operador",
     driver: "conductor",
   };
   return {
-    id: profile.id,
-    supabase_id: profile.id,
-    nombres: profile.full_name ?? "",
-    email: profile.email,
-    telefono: profile.phone ?? "",
-    rol: roleMap[profile.role] ?? "operador",
+    id: session.id,
+    supabase_id: session.id,
+    nombres: session.user_metadata?.full_name ?? "",
+    email: session.email ?? "",
+    telefono: session.user_metadata?.phone ?? session.phone ?? "",
+    rol: roleMap[session.user_metadata?.role ?? ""] ?? "operador",
     estado: "activo",
     created_at: new Date().toISOString(),
   };
@@ -44,39 +49,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient();
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        setLoading(false);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user || cancelled) {
+        if (!cancelled) setLoading(false);
         return;
       }
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", authUser.id)
-        .single();
-      if (profile) {
-        setUser(mapProfileToUsuario({ ...profile, email: authUser.email ?? "" }));
+      if (!cancelled) {
+        setUser(mapSessionToUsuario(session.user as any));
+        setLoading(false);
       }
-      setLoading(false);
     })();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_OUT") {
         setUser(null);
       } else if (session?.user && event === "SIGNED_IN") {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-        if (profile) {
-          setUser(mapProfileToUsuario({ ...profile, email: session.user.email ?? "" }));
-        }
+        setUser(mapSessionToUsuario(session.user as any));
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, [supabase]);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -85,9 +83,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const logout = useCallback(async () => {
-    await supabase.auth.signOut();
+    // Intenta revocar la sesión en el server
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {}
+
+    // Limpia localStorage
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith("sb-") || k.startsWith("supabase-"));
+    keys.forEach((k) => localStorage.removeItem(k));
     setUser(null);
-  }, [supabase]);
+  }, []);
 
   const resetPassword = useCallback(async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
