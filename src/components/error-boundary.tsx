@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen p-8 text-gray-500">
           <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            Algo sali\u00f3 mal
+            Algo salió mal
           </h2>
           <p className="text-sm mb-4 text-gray-400">
             {this.state.error?.message || "Error inesperado"}

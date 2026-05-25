@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Car, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/toast";
@@ -15,7 +14,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { login, resetPassword } = useAuth();
   const { toast } = useToast();
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,8 +22,8 @@ export default function LoginPage() {
     const ok = await login(email, password);
     setLoading(false);
     if (ok) {
-      toast("Inicio de sesi\u00f3n exitoso");
-      router.push("/dashboard");
+      toast("Inicio de sesión exitoso");
+      window.location.href = "/dashboard";
     } else {
       setError("Credenciales incorrectas");
       toast("Credenciales incorrectas", "error");
@@ -43,7 +41,7 @@ export default function LoginPage() {
     if (err) {
       toast(err, "error");
     } else {
-      toast("Revisa tu correo para restablecer la contrase\u00f1a");
+      toast("Revisa tu correo para restablecer la contraseña");
     }
   };
 
@@ -55,13 +53,13 @@ export default function LoginPage() {
             <Car className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">AppTaxi</h1>
-          <p className="text-sm text-gray-500">Panel de Gesti\u00f3n</p>
+          <p className="text-sm text-gray-500">Panel de Gestión</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Correo electr\u00f3nico
+              Correo electrónico
             </label>
             <input
               type="email"
@@ -75,7 +73,7 @@ export default function LoginPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Contrase\u00f1a
+              Contraseña
             </label>
             <div className="relative">
               <input
@@ -83,7 +81,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
-                placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                placeholder="••••••••"
                 required
               />
               <button
@@ -103,7 +101,7 @@ export default function LoginPage() {
               disabled={resetting}
               className="text-sm text-yellow-600 hover:text-yellow-700 hover:underline disabled:text-gray-400"
             >
-              {resetting ? "Enviando..." : "\u00bfOlvidaste tu contrase\u00f1a?"}
+              {resetting ? "Enviando..." : "¿Olvidaste tu contraseña?"}
             </button>
           </div>
 
@@ -116,7 +114,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 font-semibold py-2.5 rounded-lg transition-colors"
           >
-            {loading ? "Ingresando..." : "Iniciar sesi\u00f3n"}
+            {loading ? "Ingresando..." : "Iniciar sesión"}
           </button>
         </form>
       </div>

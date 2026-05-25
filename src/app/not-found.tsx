@@ -11,7 +11,7 @@ export default function NotFound() {
           </div>
         </div>
         <h1 className="text-6xl font-bold text-gray-900 mb-2">404</h1>
-        <p className="text-lg text-gray-500 mb-6">P\u00e1gina no encontrada</p>
+        <p className="text-lg text-gray-500 mb-6">Página no encontrada</p>
         <Link
           href="/dashboard"
           className="inline-flex items-center px-6 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold rounded-lg transition-colors"
