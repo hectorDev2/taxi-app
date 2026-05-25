@@ -7,7 +7,9 @@ import "mapbox-gl/dist/mapbox-gl.css";
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
 interface Marker {
-  lat: number; lng: number; color?: string; label?: string;
+  lat: number; lng: number; color?: string; label?: string; type?: "taxi" | "person" | "pickup" | "destino";
+  onClick?: () => void;
+  popupHtml?: string;
 }
 
 interface Route {
@@ -94,7 +96,7 @@ export default function MapboxMap({
   height = "400px",
   markers = [],
   routes = [],
-  center = [-77.0428, -12.0464],
+  center = [-72.8800, -13.6348],
   zoom = 12,
   interactive = true,
   onClick,
@@ -102,6 +104,7 @@ export default function MapboxMap({
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const popupRef = useRef<mapboxgl.Popup | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -128,10 +131,50 @@ export default function MapboxMap({
     markersRef.current = [];
     markers.forEach((m) => {
       const el = document.createElement("div");
-      el.className = "w-4 h-4 rounded-full border-2 border-white shadow";
-      el.style.backgroundColor = m.color || "#eab308";
       el.title = m.label || "";
+
+      if (m.type === "taxi") {
+        el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="${m.color || "#3b82f6"}" stroke="white" stroke-width="1.5"><path d="M5 11l1.5-4.5h11L19 11M3 11v5a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-5l-2-7H5l-2 7z"/><circle cx="7" cy="16" r="1.5" fill="white"/><circle cx="17" cy="16" r="1.5" fill="white"/></svg>`;
+        el.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.3))";
+      } else if (m.type === "person") {
+        el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="${m.color || "#22c55e"}" stroke="white" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0112 0v1"/></svg>`;
+        el.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.3))";
+      } else if (m.type === "pickup") {
+        el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="${m.color || "#eab308"}" stroke="white" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>`;
+        el.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.3))";
+      } else if (m.type === "destino") {
+        el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="${m.color || "#ef4444"}" stroke="white" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3" fill="white"/></svg>`;
+        el.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.3))";
+      } else {
+        el.className = "w-4 h-4 rounded-full border-2 border-white shadow";
+        el.style.backgroundColor = m.color || "#eab308";
+      }
+
       const marker = new mapboxgl.Marker({ element: el }).setLngLat([m.lng, m.lat]).addTo(map.current!);
+
+      if (m.popupHtml) {
+        el.addEventListener("mouseenter", () => {
+          if (popupRef.current) popupRef.current.remove();
+          const popup = new mapboxgl.Popup({ offset: 25, closeButton: false })
+            .setLngLat([m.lng, m.lat])
+            .setHTML(m.popupHtml)
+            .addTo(map.current!);
+          popupRef.current = popup;
+        });
+        el.addEventListener("mouseleave", () => {
+          popupRef.current?.remove();
+          popupRef.current = null;
+        });
+      }
+
+      if (m.onClick) {
+        el.style.cursor = "pointer";
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          m.onClick!();
+        });
+      }
+
       markersRef.current.push(marker);
     });
   }, [markers, loaded]);
