@@ -15,8 +15,8 @@ export default function NuevaSolicitudPage() {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [unidades, setUnidades] = useState<any[]>([]);
-  const [pickupLat, setPickupLat] = useState(-12.0464);
-  const [pickupLng, setPickupLng] = useState(-77.0428);
+  const [pickupLat, setPickupLat] = useState(-13.6348);
+  const [pickupLng, setPickupLng] = useState(-72.8800);
   const [form, setForm] = useState({
     nombre_pasajero: "",
     telefono_pasajero: "",
@@ -150,7 +150,7 @@ export default function NuevaSolicitudPage() {
                 height="250px"
                 interactive
                 onClick={handleMapClick}
-                markers={[{ lat: pickupLat, lng: pickupLng, color: "#eab308", label: "Recojo" }]}
+                markers={[{ lat: pickupLat, lng: pickupLng, color: "#eab308", label: "Recojo", type: "person" }]}
                 center={[pickupLng, pickupLat]}
                 zoom={14}
               />

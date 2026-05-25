@@ -71,6 +71,7 @@ export default function UnidadesPage() {
         lat: u.latitud, lng: u.longitud,
         color: "#22c55e",
         label: u.codigo || `Unidad ${u.unidad_id?.slice(0, 4)}`,
+        type: "taxi" as const,
       }));
       setMarcadores(markers);
       setLoading(false);

@@ -34,7 +34,7 @@ export default function ConfiguracionPage() {
           setRecargoTipo(t.recargo_tipo_unidad);
         }
       })
-      .catch(() => toast("Error al cargar configuraci\u00f3n", "error"))
+      .catch(() => toast("Error al cargar configuración", "error"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -49,9 +49,9 @@ export default function ConfiguracionPage() {
         recargo_nocturno: recargoNocturno,
         recargo_tipo_unidad: recargoTipo,
       });
-      toast("Configuraci\u00f3n guardada exitosamente");
+      toast("Configuración guardada exitosamente");
     } catch {
-      toast("Error al guardar configuraci\u00f3n", "error");
+      toast("Error al guardar configuración", "error");
     } finally {
       setSaving(false);
     }

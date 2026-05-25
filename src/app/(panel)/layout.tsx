@@ -1,7 +1,7 @@
 import Sidebar from "@/components/sidebar";
 import AuthGuard from "@/components/auth-guard";
 
-export default function DashboardLayout({
+export default function PanelLayout({
   children,
 }: {
   children: React.ReactNode;

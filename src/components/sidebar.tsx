@@ -37,8 +37,9 @@ export default function Sidebar() {
   const router = useRouter();
 
   const handleLogout = () => {
-    logout();
-    router.push("/");
+    logout().then(() => {
+      window.location.href = "/";
+    });
   };
 
   const items = navItems.filter((item) => user && item.roles.includes(user.rol));
