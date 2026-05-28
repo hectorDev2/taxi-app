@@ -163,24 +163,32 @@ export const tripService = {
 
   async getEstadisticas(): Promise<Record<string, number>> {
     const supabase = createClient();
-    const { data: trips } = await supabase.from("trips").select("status, requested_at");
+    const { data: trips } = await supabase.from("trips").select("status, requested_at, driver_id");
     const all = trips || [];
     const hoy = new Date().toISOString().split("T")[0];
 
-    const ocupadas = all.filter((t) => ["accepted", "arrived", "in_progress"].includes(t.status)).length;
-    const libres = 0;
-    const fueraServicio = 0;
-    const desconectadas = 0;
+    const activeStatuses = ["accepted", "arrived", "in_progress"];
+    const activas = all.filter((t) => activeStatuses.includes(t.status));
+    const driverIdsActivas = new Set(activas.map((t) => t.driver_id).filter(Boolean));
+
     const serviciosHoy = all.filter((t) => t.requested_at?.startsWith(hoy) || false).length;
 
-    const { data: vehicles } = await supabase.from("vehicles").select("is_active");
-    const totalVehicles = vehicles?.length || 0;
-    const activeVehicles = vehicles?.filter((v) => v.is_active)?.length || 0;
+    const { data: vehicles } = await supabase
+      .from("vehicles")
+      .select("id, is_active, owner_id")
+      .eq("is_active", true)
+      .not("owner_id", "is", null);
+
+    const allVehicles = vehicles || [];
+    // Libres = active vehicles with a driver assigned that are NOT in an active trip
+    const libres = allVehicles.filter((v) => !driverIdsActivas.has(v.owner_id)).length;
+    const ocupadas = driverIdsActivas.size;
+    const totalVehicles = allVehicles.length + (allVehicles.filter((v) => !v.is_active).length || 0);
 
     return {
-      libres: activeVehicles - ocupadas,
+      libres,
       ocupadas,
-      fueraServicio: totalVehicles - activeVehicles,
+      fueraServicio: 0,
       desconectadas: 0,
       serviciosHoy,
       total: totalVehicles,

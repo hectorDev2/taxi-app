@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Car, Clock, CheckCircle, AlertTriangle, X, Phone, MapPin, Navigation, Star, Zap, Power, PowerOff } from "lucide-react";
 import { tripService } from "@/lib/services/trip-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
+import { createClient } from "@/lib/supabase/client";
 import { useTripsRealtime, useVehiclesRealtime } from "@/lib/services/realtime";
 import MapboxMap, { fetchRoute } from "@/components/map";
 import { SkeletonCard, SkeletonMap } from "@/components/skeleton";
@@ -102,7 +103,7 @@ export default function DashboardPage() {
         color: "#22c55e",
         label: u.codigo || `Unidad ${u.unidad_id?.slice(0, 4)}`,
         type: "taxi" as const,
-      }));
+        driverId: u.conductor_id,
       setMarcadores(markers);
       setCargaError(false);
     }).catch((e) => {
@@ -140,58 +141,36 @@ export default function DashboardPage() {
     }
   });
 
-  // Ubicación simulada en Abancay para testeo
+  // Driver location realtime subscription for admin/operator view
   useEffect(() => {
-    if (!esConductor || !online) return;
-
-    const baseLat = -13.6348;
-    const baseLng = -72.8800;
-    const jitter = () => (Math.random() - 0.5) * 0.01;
-
-    let currentLat = baseLat + jitter();
-    let currentLng = baseLng + jitter();
-    setMiUbicacion({ lat: currentLat, lng: currentLng });
-
-    const interval = setInterval(() => {
-      const viaje = misViajes[0];
-
-      if (!viaje) {
-        currentLat += (Math.random() - 0.5) * 0.002;
-        currentLng += (Math.random() - 0.5) * 0.002;
-      } else if (viaje.estado === "conductor_llego" && viaje.latitud_recojo) {
-        currentLat = viaje.latitud_recojo;
-        currentLng = viaje.longitud_recojo;
-      } else if (viaje.estado === "servicio_iniciado" && viaje.latitud_destino && viaje.longitud_destino) {
-        const dx = viaje.longitud_destino - currentLng;
-        const dy = viaje.latitud_destino - currentLat;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > 0.001) {
-          const speed = 0.001;
-          currentLng += (dx / dist) * speed;
-          currentLat += (dy / dist) * speed;
+    if (esConductor) return; // conductor view uses their own GPS, not this
+    const supabase = createClient();
+    const sub = supabase
+      .channel("admin-driver-locations")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: "role=eq.driver",
+        },
+        (payload: any) => {
+          const { current_latitude, current_longitude, id } = payload.new;
+          if (current_latitude && current_longitude) {
+            setMarcadores((prev) =>
+              prev.map((m) =>
+                m.driverId === id
+                  ? { ...m, lat: current_latitude, lng: current_longitude }
+                  : m
+              )
+            );
+          }
         }
-      } else if (viaje.estado === "servicio_completado" && viaje.latitud_destino) {
-        currentLat = viaje.latitud_destino;
-        currentLng = viaje.longitud_destino;
-      } else if (viaje.latitud_recojo && viaje.longitud_recojo && (viaje.estado === "aceptada" || viaje.estado === "pendiente" || viaje.estado === "asignada")) {
-        const dx = viaje.longitud_recojo - currentLng;
-        const dy = viaje.latitud_recojo - currentLat;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > 0.001) {
-          const speed = 0.001;
-          currentLng += (dx / dist) * speed;
-          currentLat += (dy / dist) * speed;
-        }
-      } else {
-        currentLat += (Math.random() - 0.5) * 0.002;
-        currentLng += (Math.random() - 0.5) * 0.002;
-      }
-
-      setMiUbicacion({ lat: currentLat, lng: currentLng });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [esConductor, online, misViajes]);
+      )
+      .subscribe();
+    return () => { sub.unsubscribe(); };
+  }, [esConductor]);
 
   // Ruta desde mi ubicación al destino según el estado
   useEffect(() => {

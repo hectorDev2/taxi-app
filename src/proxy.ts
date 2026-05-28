@@ -8,6 +8,8 @@ const protectedRoutes = [
   "/usuarios",
   "/historial",
   "/configuracion",
+  "/driver",
+  "/driver/dashboard",
 ];
 
 export async function proxy(request: NextRequest) {
