@@ -1,137 +1,187 @@
-# AppTaxi - Panel de Gestión
+# AppTaxi — Panel de Gestión + App Conductor
 
-Plataforma de gestión operativa para empresas de taxis y call centers. Permite visualizar unidades en tiempo real, asignar servicios y registrar la operación diaria.
+Plataforma de gestión operativa para empresas de taxis y call centers. Permite visualizar unidades en tiempo real, asignar servicios, registrar la operación diaria, y tracking GPS en tiempo real.
 
 ## Stack
 
-- **Framework:** Next.js 16 (App Router)
+- **Framework:** Next.js 16 (App Router) + React 19
 - **UI:** Tailwind CSS 4 + Lucide React
-- **Mapa:** Mapbox GL
-- **Estado:** React Context + mock API local
+- **Mapa:** Mapbox GL JS
+- **Backend:** Supabase (PostgreSQL + Realtime + Auth)
+- **Auth:** Supabase Auth via `@supabase/ssr`
 - **Lenguaje:** TypeScript
 
 ## Requisitos
 
 - Node.js 20+
 - npm 10+
+- Cuenta de Supabase (proyecto existente en `bxlfgwuoqslmrzhebipi.supabase.co`)
 - Token de Mapbox (configurar en `.env.local`)
 
 ## Instalación
 
 ```bash
 npm install
-```
-
-## Desarrollo
-
-```bash
+cp .env.local.example .env.local
+# Editar .env.local con valores de Supabase y Mapbox
 npm run dev
 ```
 
 Abrir [http://localhost:3000](http://localhost:3000).
 
+## Variables de entorno
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://bxlfgwuoqslmrzhebipi.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
+NEXT_PUBLIC_MAPBOX_TOKEN=tu_mapbox_token
+```
+
+## URLs de la aplicación
+
+| URL | Descripción |
+|-----|-------------|
+| `/` | Login (admin/operador) |
+| `/dashboard` | Panel admin/operador |
+| `/solicitudes` | Listado de solicitudes |
+| `/solicitudes/nueva` | Crear nueva solicitud |
+| `/unidades` | Gestión de flota |
+| `/usuarios` | Gestión de usuarios |
+| `/historial` | Reportes de servicios |
+| `/configuracion` | Tarifas y preferencias |
+| `/driver` | Login conductor |
+| `/driver/dashboard` | App del conductor |
+
 ## Usuarios de prueba
 
-| Email | Rol |
-|---|---|
-| admin@apptaxi.com | Admin |
-| maria@apptaxi.com | Operador |
-| carlos@apptaxi.com | Operador |
-
-(Cualquier contraseña)
+| Email | Rol | Notas |
+|-------|-----|-------|
+| admin@apptaxi.com | Admin | Acceso total |
+| maria@apptaxi.com | Operador | Puede crear y asignar solicitudes |
+| carlos@apptaxi.com | Operador | Puede crear y asignar solicitudes |
+| conductor@apptaxi.com | Conductor | Login en `/driver` |
 
 ## Funcionalidades implementadas
 
 ### Autenticación y sesión
-- Login con roles (admin, operador, conductor)
-- Persistencia de sesión en localStorage
-- Protección de rutas (redirección a login)
-- Cierre de sesión
+- Login con roles diferenciados (admin, operador, conductor)
+- Protección de rutas via middleware (`src/proxy.ts`)
+- Persistencia de sesión con Supabase SSR
+- Roles: `admin`, `operador`, `conductor`
 
-### Dashboard
-- Indicadores en tiempo real (libres, ocupados, servicios hoy, fuera servicio)
-- Mapa de unidades con Mapbox
+### Dashboard admin/operador (`/dashboard`)
+- Indicadores en tiempo real (unidades libres, ocupadas, servicios hoy)
+- Mapa de unidades con ubicación real (no simulado)
+- Suscripción realtime a cambios en trips y vehicles
 - Últimas solicitudes con estado
 
-### Gestión de Unidades
-- Mapa de flota con todas las unidades
-- Tabla con código, placa, tipo, capacidad, estado y conductor
-- Filtros por estado y tipo de vehículo
-- Contadores por estado
+### Gestión de Solicitudes
+- Creación de solicitud con tipo de servicio (pasajeros / carga + pasajeros)
+- Mapa interactivo para seleccionar punto de recojo
+- Asignación de unidad inmediata
+- Estados: `pendiente` → `asignada` → `aceptada` → `conductor_llego` → `servicio_iniciado` → `completado` / `cancelada`
+- Detalle con mapa, datos del pasajero, unidad y conductor
+- Búsqueda y filtros por estado
 
-### Solicitudes
-- Creación de solicitud con tipo de servicio y selección de unidad
-- Asignación de unidad desde detalle (modal con unidades más cercanas ordenadas por distancia)
-- **Trazado de ruta** entre la unidad asignada y el punto de recojo (curva simulada + auto-zoom)
-- **Cancelación** con selección de motivo y liberación automática de la unidad
-- Flujo completo de estados: pendiente → asignada → aceptada → llegó → iniciado → completado
-- Detalle con mapa del punto de recojo, datos del pasajero, unidad y conductor
-- Búsqueda por código/pasajero/dirección/teléfono
-- Filtro por estado
-- Filtros funcionales en todas las tablas (búsqueda, estado, fecha, rol)
-- Notificaciones toast en acciones principales (crear, asignar, cancelar, eliminar)
-- Skeleton loaders mientras cargan los datos
+### App Conductor (`/driver/dashboard`)
+- Dashboard dedicado para conductores
+- Lista de viajes asignados
+- Transiciones de estado: Aceptar → Llegué al recojo → Iniciar servicio → Completar
+- Mapa con ubicación actual, punto de recojo y destino
+- Toggle online/offline
+- **LocationTracker**: GPS real que actualiza posición cada 10s via `POST /api/drivers/{id}/location`
 
-### Historial
-- Listado de servicios completados y cancelados
-- Tarifa sugerida, distancia y duración
-- Búsqueda por código/pasajero
-- Filtros por estado y fecha
+### Realtime
+- Supabase Realtime (postgres_changes) para trips y vehicles
+- `useTripsRealtime`, `useVehiclesRealtime`, `useDriverLocationRealtime` en `src/lib/services/realtime.ts`
+- Mapa se actualiza cuando el conductor actualiza su ubicación
 
-### Usuarios
-- Listado con roles y estados
-- Filtros por rol y estado
-- Eliminación con confirmación y toast
-
-### Configuración
-- Parámetros de tarifa (base, km, minuto, recargos)
-- Tipos de unidad
-- Preferencias generales (frecuencia GPS, retención de datos)
-
-## Mapbox
-
-El mapa requiere un token de Mapbox. Crear `.env.local` en la raíz:
-
-```
-NEXT_PUBLIC_MAPBOX_TOKEN=tu_token_aqui
-```
-
-## Mock Data
-
-El frontend consume una API simulada (`src/lib/mock-api.ts`) con datos de ejemplo en `src/lib/mock-data.ts`:
-- 8 usuarios, 5 conductores, 8 unidades, 6 ubicaciones
-- 10 solicitudes en distintos estados
-- 2 servicios en historial con tarifas calculadas
-- Tarifario configurable
-
-No requiere backend ni base de datos para funcionar.
+### API Routes
+- `POST /api/auth/logout` — logout con revocación de sesión
+- `GET/POST /api/profiles` — CRUD de perfiles
+- `GET/PUT /api/profiles/[id]` — leer/actualizar perfil individual
+- `POST /api/drivers/[id]/location` — actualizar ubicación GPS del conductor
 
 ## Estructura del proyecto
 
 ```
 src/
 ├── app/
-│   ├── dashboard/              # Dashboard con indicadores y mapa
-│   ├── unidades/               # Gestión de flota
-│   ├── solicitudes/            # CRUD + detalle de solicitudes
-│   │   ├── nueva/              # Formulario de creación
-│   │   └── [id]/               # Detalle de solicitud
-│   ├── historial/              # Reportes de servicios
-│   ├── usuarios/               # Gestión de usuarios
-│   └── configuracion/          # Tarifas y preferencias
+│   ├── page.tsx                    # Login admin/operador
+│   ├── driver/
+│   │   ├── page.tsx               # Login conductor
+│   │   └── dashboard/page.tsx      # Dashboard conductor
+│   ├── (panel)/                    # Panel admin/operador
+│   │   ├── dashboard/page.tsx
+│   │   ├── solicitudes/
+│   │   ├── unidades/
+│   │   ├── usuarios/
+│   │   ├── historial/
+│   │   └── configuracion/
+│   └── api/
+│       ├── auth/logout/
+│       ├── profiles/
+│       └── drivers/[id]/location/  # GPS update endpoint
 ├── components/
-│   ├── sidebar.tsx             # Navegación lateral
-│   ├── header.tsx              # Encabezado de página
-│   ├── auth-guard.tsx          # Protección de rutas
-│   ├── map.tsx                 # Mapa Mapbox
-│   ├── toast.tsx               # Sistema de notificaciones
-│   └── skeleton.tsx            # Skeleton loaders
-└── lib/
-    ├── mock-data.ts            # Datos de ejemplo + utilidades
-    ├── mock-api.ts             # API simulada
-    └── auth-context.tsx        # Contexto de autenticación
+│   ├── map.tsx                     # Mapa Mapbox
+│   ├── location-tracker.tsx         # GPS tracker para driver
+│   ├── sidebar.tsx, header.tsx
+│   ├── toast.tsx, skeleton.tsx
+│   └── error-boundary.tsx
+├── lib/
+│   ├── auth-context.tsx             # Auth context + useAuth hook
+│   ├── supabase/
+│   │   ├── client.ts               # Browser client (createBrowserClient)
+│   │   ├── server.ts               # Server client (createServerClient)
+│   │   └── admin.ts                 # Admin client
+│   └── services/
+│       ├── trip-service.ts         # CRUD trips + realtime
+│       ├── vehicle-service.ts       # CRUD vehicles + realtime
+│       ├── profile-service.ts
+│       ├── tariff-service.ts
+│       ├── realtime.ts             # Hooks: useTripsRealtime, useVehiclesRealtime, useDriverLocationRealtime
+│       └── types.ts                # AppTrip, AppVehicle, AppUser
+└── proxy.ts                        # Auth middleware
+supabase/
+└── migrations/
+    ├── 20260522231002_initial_schema.sql   # Schema inicial
+    └── 20260529_fix_rls_operator_trips.sql # RLS para operadores
 ```
 
-## Licencia
+## Known issues / limitaciones del MVP
 
-Uso interno del proyecto AppTaxi.
+- **No driver mobile app** — Conductor usa web dashboard. Sin GPS background ni notificaciones push.
+- **No passenger self-booking** — Todas las solicitudes las crea el operador.
+- **No push notifications** — El conductor no recibe alertas cuando le asignan un viaje.
+- **No pricing integration** — Tarifa no se calcula automáticamente al completar.
+- **No payment flow** — Tabla `payments` existe pero no hay flujo de pago.
+- **Logout API rota** — El endpoint `/api/auth/logout` no existe aún, solo limpia localStorage.
+- **Toggle online/offline no persiste** — El botón de estado online existe pero no escribe `is_online` en la DB.
+- **`libres` stat incorrecto** — `trip-service.ts` calcula mal restando solo ocupados, no verifica conductor asignado.
+
+## Migraciones de base de datos
+
+```bash
+# Aplicar migraciones al proyecto linked
+supabase db push
+
+# Ver migraciones aplicadas
+supabase migration list
+```
+
+## Desarrolladores
+
+Para correr el proyecto:
+
+```bash
+npm install
+npm run dev
+```
+
+Para aplicar migraciones de Supabase (requiere `supabase login`):
+
+```bash
+supabase db push
+```
+
+El proyecto usa Supabase hosted (`bxlfgwuoqslmrzhebipi.supabase.co`). Para desarrollo local, configurar `SUPABASE_DB_PASSWORD` y usar `--local` flag.
