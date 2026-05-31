@@ -12,6 +12,10 @@ repomix-output.xml
 .atl
 # testing
 /coverage
+/playwright-report
+/test-results
+/tests
+playwright.config.ts
 
 # next.js
 /.next/
@@ -32,6 +36,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+
+# vscode
+.vscode
 
 # vercel
 .vercel
