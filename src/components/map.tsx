@@ -7,9 +7,15 @@ import "mapbox-gl/dist/mapbox-gl.css";
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
 interface Marker {
-  lat: number; lng: number; color?: string; label?: string; type?: "taxi" | "person" | "pickup" | "destino";
+  lat: number;
+  lng: number;
+  color?: string;
+  label?: string;
+  type?: "taxi" | "person" | "pickup" | "destino";
   onClick?: () => void;
   popupHtml?: string;
+  draggable?: boolean;
+  onDragEnd?: (lng: number, lat: number) => void;
 }
 
 interface Route {
@@ -27,7 +33,11 @@ interface Props {
   onClick?: (lng: number, lat: number) => void;
 }
 
-function generateCurvedPath(origin: [number, number], dest: [number, number], steps = 30): [number, number][] {
+function generateCurvedPath(
+  origin: [number, number],
+  dest: [number, number],
+  steps = 30
+): [number, number][] {
   const mid = [(origin[0] + dest[0]) / 2, (origin[1] + dest[1]) / 2];
   const dx = dest[0] - origin[0];
   const dy = dest[1] - origin[1];
@@ -40,12 +50,18 @@ function generateCurvedPath(origin: [number, number], dest: [number, number], st
     const a = (1 - t) * (1 - t);
     const b = 2 * (1 - t) * t;
     const c = t * t;
-    pts.push([a * origin[0] + b * mid[0] + c * dest[0], a * origin[1] + b * mid[1] + c * dest[1]]);
+    pts.push([
+      a * origin[0] + b * mid[0] + c * dest[0],
+      a * origin[1] + b * mid[1] + c * dest[1],
+    ]);
   }
   return pts;
 }
 
-export async function fetchRoute(origin: [number, number], dest: [number, number]): Promise<[number, number][]> {
+export async function fetchRoute(
+  origin: [number, number],
+  dest: [number, number]
+): Promise<[number, number][]> {
   const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${origin[0]},${origin[1]};${dest[0]},${dest[1]}?geometries=geojson&access_token=${TOKEN}`;
   try {
     const res = await fetch(url);
@@ -60,12 +76,20 @@ export async function fetchRoute(origin: [number, number], dest: [number, number
 function removeRouteLayers(map: mapboxgl.Map) {
   const ids = ["apptaxi-route-line", "apptaxi-route-glow"];
   ids.forEach((id) => {
-    try { if (map.getLayer(id)) map.removeLayer(id); } catch {}
-    try { if (map.getSource(id)) map.removeSource(id); } catch {}
+    try {
+      if (map.getLayer(id)) map.removeLayer(id);
+    } catch {}
+    try {
+      if (map.getSource(id)) map.removeSource(id);
+    } catch {}
   });
 }
 
-function addRouteToMap(map: mapboxgl.Map, points: [number, number][], color: string) {
+function addRouteToMap(
+  map: mapboxgl.Map,
+  points: [number, number][],
+  color: string
+) {
   const data: GeoJSON.Feature = {
     type: "Feature",
     properties: {},
@@ -105,7 +129,13 @@ export default function MapboxMap({
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
+  const dragCallbacksRef = useRef<
+    Map<number, ((lng: number, lat: number) => void) | undefined>
+  >(new Map());
   const [loaded, setLoaded] = useState(false);
+
+  const onClickRef = useRef(onClick);
+  onClickRef.current = onClick;
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -119,17 +149,29 @@ export default function MapboxMap({
     });
     m.addControl(new mapboxgl.NavigationControl(), "top-right");
     m.on("load", () => setLoaded(true));
-    if (interactive && onClick) {
-      m.on("click", (e) => onClick(e.lngLat.lng, e.lngLat.lat));
+    if (interactive) {
+      m.on("click", (e) => onClickRef.current?.(e.lngLat.lng, e.lngLat.lat));
     }
     map.current = m;
+    return () => {
+      m.remove();
+      map.current = null;
+    };
   }, []);
 
   useEffect(() => {
     if (!map.current || !loaded) return;
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
-    markers.forEach((m) => {
+
+    markers.forEach((m, i) => {
+      dragCallbacksRef.current.set(i, m.onDragEnd);
+    });
+
+    markers.forEach((m, i) => {
+      if (i < markersRef.current.length) {
+        markersRef.current[i].setLngLat([m.lng, m.lat]);
+        return;
+      }
+
       const el = document.createElement("div");
       el.title = m.label || "";
 
@@ -150,7 +192,12 @@ export default function MapboxMap({
         el.style.backgroundColor = m.color || "#eab308";
       }
 
-      const marker = new mapboxgl.Marker({ element: el }).setLngLat([m.lng, m.lat]).addTo(map.current!);
+      const marker = new mapboxgl.Marker({
+        element: el,
+        draggable: m.draggable ?? false,
+      })
+        .setLngLat([m.lng, m.lat])
+        .addTo(map.current!);
 
       if (m.popupHtml) {
         el.addEventListener("mouseenter", () => {
@@ -175,22 +222,50 @@ export default function MapboxMap({
         });
       }
 
+      if (m.draggable) {
+        const idx = i;
+        marker.on("dragend", () => {
+          const lngLat = marker.getLngLat();
+          dragCallbacksRef.current.get(idx)?.(lngLat.lng, lngLat.lat);
+        });
+      }
+
       markersRef.current.push(marker);
     });
+
+    while (markersRef.current.length > markers.length) {
+      const m = markersRef.current.pop();
+      if (m) {
+        m.remove();
+        dragCallbacksRef.current.delete(markersRef.current.length);
+      }
+    }
   }, [markers, loaded]);
 
   useEffect(() => {
     if (!map.current || !loaded) return;
     removeRouteLayers(map.current);
     if (routes.length > 0) {
-      addRouteToMap(map.current, routes[0].points, routes[0].color || "#eab308");
+      addRouteToMap(
+        map.current,
+        routes[0].points,
+        routes[0].color || "#eab308"
+      );
       if (routes[0].points.length >= 2) {
-        const bounds = new mapboxgl.LngLatBounds([routes[0].points[0], routes[0].points[0]]);
+        const bounds = new mapboxgl.LngLatBounds(
+          [routes[0].points[0], routes[0].points[0]]
+        );
         routes[0].points.forEach((p) => bounds.extend(p));
         map.current.fitBounds(bounds, { padding: 60, maxZoom: 15 });
       }
     }
   }, [routes, loaded]);
 
-  return <div ref={container} className="rounded-lg" style={{ width: "100%", height }} />;
+  return (
+    <div
+      ref={container}
+      className="rounded-lg"
+      style={{ width: "100%", height }}
+    />
+  );
 }

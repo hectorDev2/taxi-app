@@ -9,15 +9,27 @@ import { tripService } from "@/lib/services/trip-service";
 import { useTripsRealtime } from "@/lib/services/realtime";
 import { SkeletonTable } from "@/components/skeleton";
 import DetalleModal from "@/components/detalle-modal";
+import { TRIP_STATUS_BADGE } from "@/lib/constants";
+import usePagination from "@/hooks/usePagination";
 
-const estadoBadge: Record<string, string> = {
-  pendiente: "bg-yellow-100 text-yellow-700",
-  asignada: "bg-blue-100 text-blue-700",
-  aceptada: "bg-indigo-100 text-indigo-700",
-  conductor_llego: "bg-orange-100 text-orange-700",
-  servicio_iniciado: "bg-purple-100 text-purple-700",
-  servicio_completado: "bg-green-100 text-green-700",
-  cancelada: "bg-red-100 text-red-700",
+const STATUS_LABELS: Record<string, string> = {
+  pendiente: "Pendiente",
+  asignada: "Asignada",
+  aceptada: "Aceptada",
+  conductor_llego: "Conductor llegó",
+  servicio_iniciado: "Servicio iniciado",
+  servicio_completado: "Completado",
+  cancelada: "Cancelada",
+};
+
+const STATUS_ACTIONS: Record<string, { label: string; variant: "primary" | "ghost" }> = {
+  pendiente: { label: "Asignar", variant: "primary" },
+  asignada: { label: "Ver detalle", variant: "ghost" },
+  aceptada: { label: "Ver detalle", variant: "ghost" },
+  conductor_llego: { label: "Ver detalle", variant: "ghost" },
+  servicio_iniciado: { label: "Ver detalle", variant: "ghost" },
+  servicio_completado: { label: "Ver detalle", variant: "ghost" },
+  cancelada: { label: "Ver detalle", variant: "ghost" },
 };
 
 function SolicitudesContent() {
@@ -28,8 +40,6 @@ function SolicitudesContent() {
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
-  const [pagina, setPagina] = useState(1);
-  const porPagina = 10;
 
   useEffect(() => {
     tripService.list()
@@ -54,10 +64,8 @@ function SolicitudesContent() {
     return true;
   });
 
-  useEffect(() => { setPagina(1); }, [busqueda, filtroEstado]);
-
-  const totalPaginas = Math.ceil(filtradas.length / porPagina);
-  const paginadas = filtradas.slice((pagina - 1) * porPagina, pagina * porPagina);
+  const { pagina, setPagina, totalPaginas, paginadas, reset } = usePagination(filtradas, 10);
+  useEffect(() => { reset(); }, [busqueda, filtroEstado]);
 
   return (
     <>
@@ -83,8 +91,8 @@ function SolicitudesContent() {
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
               >
                 <option value="">Todos los estados</option>
-                {Object.keys(estadoBadge).map((k) => (
-                  <option key={k} value={k}>{k.replace(/_/g, " ")}</option>
+                {Object.keys(TRIP_STATUS_BADGE).map((k) => (
+                  <option key={k} value={k}>{STATUS_LABELS[k] || k.replace(/_/g, " ")}</option>
                 ))}
               </select>
             </div>
@@ -123,13 +131,30 @@ function SolicitudesContent() {
                     <td className="px-6 py-4 text-sm text-gray-700 max-w-[200px] truncate">{s.punto_recojo_texto}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{s.tipo_servicio === "pasajeros" ? "Pasajeros" : "Carga + Pasajeros"}</td>
                     <td className="px-6 py-4">
-                      <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${estadoBadge[s.estado] || ""}`}>
-                        {s.estado.replace(/_/g, " ")}
+                      <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${TRIP_STATUS_BADGE[s.estado] || ""}`}>
+                        {STATUS_LABELS[s.estado] || s.estado.replace(/_/g, " ")}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 capitalize">{s.canal_origen}</td>
                     <td className="px-6 py-4 text-right">
-                      <button onClick={() => router.push(`/solicitudes?id=${s.id}`)} className="text-yellow-600 hover:text-yellow-700 text-sm font-medium">Ver detalle</button>
+                      {(() => {
+                        const action = STATUS_ACTIONS[s.estado] || { label: "Ver detalle", variant: "ghost" };
+                        return action.variant === "primary" ? (
+                          <button
+                            onClick={() => router.push(`/solicitudes?id=${s.id}`)}
+                            className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            {action.label}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => router.push(`/solicitudes?id=${s.id}`)}
+                            className="text-yellow-600 hover:text-yellow-700 text-sm font-medium"
+                          >
+                            {action.label}
+                          </button>
+                        );
+                      })()}
                     </td>
                   </tr>
                 )))}
