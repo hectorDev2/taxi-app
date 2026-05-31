@@ -7,14 +7,10 @@ import { useTripsRealtime } from "@/lib/services/realtime";
 import LocationTracker from "@/components/location-tracker";
 import MapboxMap from "@/components/map";
 import { Car, Clock, CheckCircle, MapPin, Navigation, Star, X, Phone, Zap, PowerOff, AlertCircle } from "lucide-react";
+import Modal from "@/components/modal";
+import { getEstadoFlujo } from "@/lib/constants";
 
-const ESTADOS_FLUJO = [
-  { key: "asignada", label: "Asignado", icon: Car },
-  { key: "aceptada", label: "Aceptado", icon: CheckCircle },
-  { key: "conductor_llego", label: "Llegué", icon: MapPin },
-  { key: "servicio_iniciado", label: "En Viaje", icon: Navigation },
-  { key: "servicio_completado", label: "Completado", icon: Star },
-];
+const ESTADOS_FLUJO = getEstadoFlujo("asignada");
 
 export default function DriverDashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -304,45 +300,34 @@ export default function DriverDashboardPage() {
       {/* Location tracker */}
       <LocationTracker enabled={online} />
 
-      {/* Cancel modal */}
-      {cancelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h3 className="text-base font-semibold text-gray-800">Cancelar Viaje</h3>
-              <button onClick={() => setCancelModal(null)} className="p-1 hover:bg-gray-100 rounded-lg">
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              <select
-                value={cancelModal.motivo}
-                onChange={(e) => setCancelModal({ ...cancelModal, motivo: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-sm"
-              >
-                <option value="">Motivo de cancelación</option>
-                <option value="Pasajero canceló">Pasajero canceló</option>
-                <option value="Vehículo en mantenimiento">Vehículo en mantenimiento</option>
-                <option value="Tráfico / demora">Tráfico / demora</option>
-                <option value="Dirección incorrecta">Dirección incorrecta</option>
-                <option value="Otro">Otro</option>
-              </select>
-              <div className="flex gap-3">
-                <button onClick={() => setCancelModal(null)} className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  Volver
-                </button>
-                <button
-                  onClick={cancelarViaje}
-                  disabled={!cancelModal.motivo}
-                  className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 disabled:bg-red-200 text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  Confirmar
-                </button>
-              </div>
-            </div>
+      <Modal open={!!cancelModal} onClose={() => setCancelModal(null)} title="Cancelar Viaje" maxWidth="sm">
+        <div className="p-6 space-y-4">
+          <select
+            value={cancelModal?.motivo || ""}
+            onChange={(e) => setCancelModal(cancelModal ? { ...cancelModal, motivo: e.target.value } : null)}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-sm"
+          >
+            <option value="">Motivo de cancelación</option>
+            <option value="Pasajero canceló">Pasajero canceló</option>
+            <option value="Vehículo en mantenimiento">Vehículo en mantenimiento</option>
+            <option value="Tráfico / demora">Tráfico / demora</option>
+            <option value="Dirección incorrecta">Dirección incorrecta</option>
+            <option value="Otro">Otro</option>
+          </select>
+          <div className="flex gap-3">
+            <button onClick={() => setCancelModal(null)} className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+              Volver
+            </button>
+            <button
+              onClick={cancelarViaje}
+              disabled={!cancelModal?.motivo}
+              className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 disabled:bg-red-200 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              Confirmar
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
