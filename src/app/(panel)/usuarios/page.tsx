@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Header from "@/components/header";
-import { UserPlus, Edit2, Trash2, X } from "lucide-react";
+import { UserPlus, Edit2, Trash2 } from "lucide-react";
 import { profileService } from "@/lib/services/profile-service";
 import { useToast } from "@/components/toast";
 import { SkeletonTable } from "@/components/skeleton";
 import Pagination from "@/components/pagination";
+import Modal from "@/components/modal";
+import usePagination from "@/hooks/usePagination";
 
 const rolStyle: Record<string, string> = {
   admin: "bg-purple-100 text-purple-700",
@@ -37,8 +39,6 @@ export default function UsuariosPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<UserForm>(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [pagina, setPagina] = useState(1);
-  const porPagina = 10;
 
   const cargar = () => {
     setLoading(true);
@@ -76,7 +76,7 @@ export default function UsuariosPage() {
       } else {
         await profileService.create({
           email: form.email,
-          password: "Temp1234!",
+          password: crypto.randomUUID().replace(/-/g, "").slice(0, 12),
           nombres: form.nombres,
           telefono: form.telefono,
           rol: form.rol,
@@ -108,10 +108,8 @@ export default function UsuariosPage() {
     return true;
   });
 
-  useEffect(() => { setPagina(1); }, [filtroRol, filtroEstado]);
-
-  const totalPaginas = Math.ceil(filtrados.length / porPagina);
-  const paginadas = filtrados.slice((pagina - 1) * porPagina, pagina * porPagina);
+  const { pagina, setPagina, totalPaginas, paginadas, reset } = usePagination(filtrados, 10);
+  useEffect(() => { reset(); }, [filtroRol, filtroEstado]);
 
   return (
     <div>
@@ -194,53 +192,43 @@ export default function UsuariosPage() {
         )}
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">{editId ? "Editar Usuario" : "Nuevo Usuario"}</h3>
-              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            <form onSubmit={guardar} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nombres</label>
-                <input type="text" value={form.nombres} onChange={(e) => setForm({ ...form, nombres: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                <input type="tel" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
-                <select value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value as UserForm["rol"] })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
-                  {roles.map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                <select value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value as UserForm["estado"] })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
-                  <option value="activo">Activo</option>
-                  <option value="inactivo">Inactivo</option>
-                </select>
-              </div>
-              <div className="flex gap-3 justify-end pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={saving} className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 text-sm font-medium rounded-lg transition-colors">
-                  {saving ? "Guardando..." : editId ? "Guardar Cambios" : "Crear Usuario"}
-                </button>
-              </div>
-            </form>
+      <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? "Editar Usuario" : "Nuevo Usuario"}>
+        <form onSubmit={guardar} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nombres</label>
+            <input type="text" value={form.nombres} onChange={(e) => setForm({ ...form, nombres: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" />
           </div>
-        </div>
-      )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+            <input type="tel" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+            <select value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value as UserForm["rol"] })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
+              {roles.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+            <select value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value as UserForm["estado"] })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
+              <option value="activo">Activo</option>
+              <option value="inactivo">Inactivo</option>
+            </select>
+          </div>
+          <div className="flex gap-3 justify-end pt-2">
+            <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving} className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 text-sm font-medium rounded-lg transition-colors">
+              {saving ? "Guardando..." : editId ? "Guardar Cambios" : "Crear Usuario"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

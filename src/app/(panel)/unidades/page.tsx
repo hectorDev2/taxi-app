@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Header from "@/components/header";
-import { Car, Plus, Edit2, Trash2, X, Wifi, WifiOff, User } from "lucide-react";
+import { Car, Plus, Edit2, Trash2, User } from "lucide-react";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { profileService } from "@/lib/services/profile-service";
 import { useVehiclesRealtime } from "@/lib/services/realtime";
@@ -10,24 +10,9 @@ import { useToast } from "@/components/toast";
 import MapboxMap from "@/components/map";
 import Pagination from "@/components/pagination";
 import { SkeletonCard, SkeletonTable, SkeletonMap } from "@/components/skeleton";
-
-const estadoBadge: Record<string, string> = {
-  libre: "bg-green-100 text-green-700",
-  asignado: "bg-yellow-100 text-yellow-700",
-  esperando_pasajero: "bg-orange-100 text-orange-700",
-  ocupado: "bg-blue-100 text-blue-700",
-  fuera_servicio: "bg-red-100 text-red-700",
-  desconectado: "bg-gray-100 text-gray-700",
-};
-
-const estadoIcon: Record<string, React.ElementType> = {
-  libre: Wifi,
-  asignado: Wifi,
-  esperando_pasajero: Wifi,
-  ocupado: Wifi,
-  fuera_servicio: WifiOff,
-  desconectado: WifiOff,
-};
+import { VEHICLE_STATUS_BADGE, VEHICLE_STATUS_ICON } from "@/lib/constants";
+import Modal from "@/components/modal";
+import usePagination from "@/hooks/usePagination";
 
 interface VehicleForm {
   codigo: string;
@@ -53,8 +38,6 @@ export default function UnidadesPage() {
   const [conductores, setConductores] = useState<any[]>([]);
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
-  const [pagina, setPagina] = useState(1);
-  const porPagina = 10;
 
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -163,10 +146,8 @@ export default function UnidadesPage() {
     return true;
   });
 
-  useEffect(() => { setPagina(1); }, [filtroEstado, filtroTipo]);
-
-  const totalPaginas = Math.ceil(filtradas.length / porPagina);
-  const paginadas = filtradas.slice((pagina - 1) * porPagina, pagina * porPagina);
+  const { pagina, setPagina, totalPaginas, paginadas, reset } = usePagination(filtradas, 10);
+  useEffect(() => { reset(); }, [filtroEstado, filtroTipo]);
 
   return (
     <div>
@@ -202,7 +183,7 @@ export default function UnidadesPage() {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
             >
               <option value="">Todos los estados</option>
-              {Object.keys(estadoBadge).map((k) => (
+              {Object.keys(VEHICLE_STATUS_BADGE).map((k) => (
                 <option key={k} value={k}>{k.replace(/_/g, " ")}</option>
               ))}
             </select>
@@ -244,7 +225,7 @@ export default function UnidadesPage() {
               {paginadas.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-8 text-gray-400 text-sm">No se encontraron unidades</td></tr>
               ) : (paginadas.map((u) => {
-                const Icon = estadoIcon[u.estado_actual] || Wifi;
+                const Icon = VEHICLE_STATUS_ICON[u.estado_actual] || VEHICLE_STATUS_ICON.libre;
                 return (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{u.codigo}</td>
@@ -253,7 +234,7 @@ export default function UnidadesPage() {
                     <td className="px-6 py-4 text-sm text-gray-700">{u.tipo_unidad === "pasajeros" ? "Pasajeros" : "Carga + Pasajeros"}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{u.capacidad} asientos</td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${estadoBadge[u.estado_actual] || ""}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${VEHICLE_STATUS_BADGE[u.estado_actual] || ""}`}>
                         <Icon className="w-3.5 h-3.5" />
                         {u.estado_actual.replace(/_/g, " ")}
                       </span>
@@ -279,74 +260,64 @@ export default function UnidadesPage() {
         )}
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">{editId ? "Editar Unidad" : "Nueva Unidad"}</h3>
-              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
+      <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? "Editar Unidad" : "Nueva Unidad"} maxWidth="lg">
+        <form onSubmit={guardar} className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
+              <input type="text" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: U-001" />
             </div>
-            <form onSubmit={guardar} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
-                  <input type="text" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: U-001" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Placa</label>
-                  <input type="text" value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: ABC-123" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
-                  <input type="text" value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: Toyota" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
-                  <input type="text" value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: Corolla" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
-                  <input type="number" value={form.anio} onChange={(e) => setForm({ ...form, anio: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="2024" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacidad</label>
-                  <input type="number" value={form.capacidad} onChange={(e) => setForm({ ...form, capacidad: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Unidad</label>
-                <select value={form.tipo_unidad} onChange={(e) => setForm({ ...form, tipo_unidad: e.target.value as VehicleForm["tipo_unidad"] })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
-                  <option value="pasajeros">Pasajeros</option>
-                  <option value="carga_pasajeros">Carga + Pasajeros</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Conductor asignado</label>
-                <select value={form.conductor_id} onChange={(e) => setForm({ ...form, conductor_id: e.target.value })} required={!editId} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
-                  <option value="">Seleccione un conductor</option>
-                  {conductores.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nombres} ({c.email})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-3 justify-end pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={saving} className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 text-sm font-medium rounded-lg transition-colors">
-                  {saving ? "Guardando..." : editId ? "Guardar Cambios" : "Crear Unidad"}
-                </button>
-              </div>
-            </form>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Placa</label>
+              <input type="text" value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: ABC-123" />
+            </div>
           </div>
-        </div>
-      )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
+              <input type="text" value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: Toyota" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
+              <input type="text" value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: Corolla" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
+              <input type="number" value={form.anio} onChange={(e) => setForm({ ...form, anio: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="2024" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Capacidad</label>
+              <input type="number" value={form.capacidad} onChange={(e) => setForm({ ...form, capacidad: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Unidad</label>
+            <select value={form.tipo_unidad} onChange={(e) => setForm({ ...form, tipo_unidad: e.target.value as VehicleForm["tipo_unidad"] })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
+              <option value="pasajeros">Pasajeros</option>
+              <option value="carga_pasajeros">Carga + Pasajeros</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Conductor asignado</label>
+            <select value={form.conductor_id} onChange={(e) => setForm({ ...form, conductor_id: e.target.value })} required={!editId} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
+              <option value="">Seleccione un conductor</option>
+              {conductores.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombres} ({c.email})</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-3 justify-end pt-2">
+            <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving} className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 text-sm font-medium rounded-lg transition-colors">
+              {saving ? "Guardando..." : editId ? "Guardar Cambios" : "Crear Unidad"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

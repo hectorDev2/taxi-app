@@ -6,6 +6,7 @@ import { Search, Download } from "lucide-react";
 import { tripService } from "@/lib/services/trip-service";
 import { SkeletonTable } from "@/components/skeleton";
 import Pagination from "@/components/pagination";
+import usePagination from "@/hooks/usePagination";
 
 export default function HistorialPage() {
   const [servicios, setServicios] = useState<any[]>([]);
@@ -15,8 +16,6 @@ export default function HistorialPage() {
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroFecha, setFiltroFecha] = useState("");
-  const [pagina, setPagina] = useState(1);
-  const porPagina = 10;
 
   useEffect(() => {
     Promise.all([
@@ -63,10 +62,8 @@ export default function HistorialPage() {
     return true;
   });
 
-  useEffect(() => { setPagina(1); }, [busqueda, filtroEstado, filtroFecha]);
-
-  const totalPaginas = Math.ceil(filtradas.length / porPagina);
-  const paginadas = filtradas.slice((pagina - 1) * porPagina, pagina * porPagina);
+  const { pagina, setPagina, totalPaginas, paginadas, reset } = usePagination(filtradas, 10);
+  useEffect(() => { reset(); }, [busqueda, filtroEstado, filtroFecha]);
 
   const handleExport = async () => {
     setExporting(true);
