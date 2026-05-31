@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Car, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/toast";
 
 export default function DriverLoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,7 +24,7 @@ export default function DriverLoginPage() {
     setLoading(false);
     if (ok) {
       toast("Inicio de sesión exitoso");
-      window.location.href = "/driver/dashboard";
+      router.push("/driver/dashboard");
     } else {
       setError("Credenciales incorrectas");
       toast("Credenciales incorrectas", "error");

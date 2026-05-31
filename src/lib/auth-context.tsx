@@ -78,8 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return !error;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return false;
+    if (data.session?.user) {
+      setUser(mapSessionToUsuario(data.session.user as any));
+    }
+    return true;
   }, [supabase]);
 
   const logout = useCallback(async () => {

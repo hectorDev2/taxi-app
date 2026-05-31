@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Car, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/toast";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -23,7 +25,7 @@ export default function LoginPage() {
     setLoading(false);
     if (ok) {
       toast("Inicio de sesión exitoso");
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     } else {
       setError("Credenciales incorrectas");
       toast("Credenciales incorrectas", "error");
@@ -46,7 +48,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-400 via-yellow-300 to-yellow-500">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-yellow-400 via-yellow-300 to-yellow-500">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 mx-4">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-yellow-400 p-4 rounded-full mb-4">
@@ -87,6 +89,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label="Mostrar contraseña"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
