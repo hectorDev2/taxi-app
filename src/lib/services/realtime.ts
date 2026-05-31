@@ -2,11 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { Tables } from "@/lib/database.types";
+import type { RealtimePostgresChangesPayload } from "@supabase/realtime-js";
 import { vehicleService } from "./vehicle-service";
 import { tripService } from "./trip-service";
 
 let tripsSub: ReturnType<typeof tripService.subscribe> | null = null;
-const tripsListeners = new Set<(payload: any) => void>();
+const tripsListeners = new Set<(payload: RealtimePostgresChangesPayload<Tables<"trips">>) => void>();
 
 function ensureTripsSubscription() {
   if (tripsSub) return;
@@ -15,13 +17,13 @@ function ensureTripsSubscription() {
   });
 }
 
-export function useTripsRealtime(callback: (payload: any) => void) {
+export function useTripsRealtime(callback: (payload: RealtimePostgresChangesPayload<Tables<"trips">>) => void) {
   const cb = useRef(callback);
   cb.current = callback;
 
   useEffect(() => {
     ensureTripsSubscription();
-    const fn = (payload: any) => cb.current(payload);
+    const fn = (payload: RealtimePostgresChangesPayload<Tables<"trips">>) => cb.current(payload);
     tripsListeners.add(fn);
     return () => {
       tripsListeners.delete(fn);
@@ -34,7 +36,7 @@ export function useTripsRealtime(callback: (payload: any) => void) {
 }
 
 let vehiclesSub: ReturnType<typeof vehicleService.subscribe> | null = null;
-const vehiclesListeners = new Set<(payload: any) => void>();
+const vehiclesListeners = new Set<(payload: RealtimePostgresChangesPayload<Tables<"vehicles">>) => void>();
 
 function ensureVehiclesSubscription() {
   if (vehiclesSub) return;
@@ -43,13 +45,13 @@ function ensureVehiclesSubscription() {
   });
 }
 
-export function useVehiclesRealtime(callback: (payload: any) => void) {
+export function useVehiclesRealtime(callback: (payload: RealtimePostgresChangesPayload<Tables<"vehicles">>) => void) {
   const cb = useRef(callback);
   cb.current = callback;
 
   useEffect(() => {
     ensureVehiclesSubscription();
-    const fn = (payload: any) => cb.current(payload);
+    const fn = (payload: RealtimePostgresChangesPayload<Tables<"vehicles">>) => cb.current(payload);
     vehiclesListeners.add(fn);
     return () => {
       vehiclesListeners.delete(fn);
@@ -81,13 +83,15 @@ export function useDriverLocationRealtime(
           table: "profiles",
           filter: `id=eq.${driverId}`,
         },
-        (payload: any) => {
-          const { current_latitude, current_longitude, last_location_update } = payload.new;
+        (payload: RealtimePostgresChangesPayload<Pick<Tables<"profiles">, "current_latitude" | "current_longitude" | "last_location_update">>) => {
+          // We only listen to UPDATE events, so payload.new is always the full row
+          const p = payload.new as unknown as Pick<Tables<"profiles">, "current_latitude" | "current_longitude" | "last_location_update">;
+          const { current_latitude, current_longitude, last_location_update } = p;
           if (current_latitude && current_longitude) {
             cb.current({
               lat: current_latitude,
               lng: current_longitude,
-              updatedAt: last_location_update,
+              updatedAt: last_location_update || new Date().toISOString(),
             });
           }
         }

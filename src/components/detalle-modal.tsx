@@ -9,16 +9,7 @@ import { useTripsRealtime, useDriverLocationRealtime } from "@/lib/services/real
 import MapboxMap, { fetchRoute } from "@/components/map";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/toast";
-
-const estadoBadge: Record<string, string> = {
-  pendiente: "bg-yellow-100 text-yellow-700",
-  asignada: "bg-blue-100 text-blue-700",
-  aceptada: "bg-indigo-100 text-indigo-700",
-  conductor_llego: "bg-orange-100 text-orange-700",
-  servicio_iniciado: "bg-purple-100 text-purple-700",
-  servicio_completado: "bg-green-100 text-green-700",
-  cancelada: "bg-red-100 text-red-700",
-};
+import { TRIP_STATUS_BADGE } from "@/lib/constants";
 
 export default function DetalleModal({
   id,
@@ -63,7 +54,7 @@ export default function DetalleModal({
   useEffect(() => { cargar(); }, [id]);
 
   useTripsRealtime((payload) => {
-    if (payload.new?.id === id) cargar();
+    if ("id" in payload.new && payload.new.id === id) cargar();
   });
 
   useDriverLocationRealtime(sol?.conductor_id, (location) => {
@@ -138,7 +129,7 @@ export default function DetalleModal({
             <div>
               <h2 className="text-xl font-semibold text-gray-800">{sol?.codigo || "Cargando..."}</h2>
               {sol && (
-                <span className={`inline-block mt-1 px-2.5 py-1 rounded-full text-xs font-medium ${estadoBadge[sol.estado] || ""}`}>
+                <span className={`inline-block mt-1 px-2.5 py-1 rounded-full text-xs font-medium ${TRIP_STATUS_BADGE[sol.estado] || ""}`}>
                   {sol.estado.replace(/_/g, " ")}
                 </span>
               )}

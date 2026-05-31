@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/client";
+import type { Tables, TablesUpdate } from "@/lib/database.types";
+import type { RealtimePostgresChangesPayload } from "@supabase/realtime-js";
 import type { AppTrip, ServiceHistoryItem } from "./types";
 import { TRIP_STATUS_MAP, TRIP_STATUS_MAP_REVERSE } from "./types";
 
-function mapTrip(row: any): AppTrip {
+function mapTrip(row: Tables<"trips">): AppTrip {
   return {
     id: row.id,
     codigo: row.code || `S-${row.id?.slice(0, 4)?.toUpperCase()}`,
@@ -18,8 +20,8 @@ function mapTrip(row: any): AppTrip {
     tipo_servicio: (row.service_type === "cargo_passengers" ? "carga_pasajeros" : "pasajeros") as AppTrip["tipo_servicio"],
     estado: TRIP_STATUS_MAP[row.status] || row.status,
     operador_id: row.operator_id || row.passenger_id,
-    conductor_id: row.driver_id,
-    unidad_id: row.vehicle_id,
+    conductor_id: row.driver_id ?? undefined,
+    unidad_id: row.vehicle_id ?? undefined,
     created_at: row.requested_at,
     updated_at: row.updated_at,
   };
@@ -77,6 +79,8 @@ export const tripService = {
         operator_id: input.operator_id,
         passenger_id: input.operator_id,
         status: "pending",
+      // FIXME: supabase strict typing — dropoff_latitude/dropoff_longitude are non-nullable in
+      // generated types but we pass null when not provided, which the DB allows at the constraint level
       } as any)
       .select()
       .single();
@@ -103,7 +107,7 @@ export const tripService = {
     const supabase = createClient();
     const dbStatus = TRIP_STATUS_MAP_REVERSE[mockStatus] || mockStatus;
     const now = new Date().toISOString();
-    const updates: Record<string, any> = {
+    const updates: TablesUpdate<"trips"> & { cancelled_by?: string } = {
       status: dbStatus,
       updated_at: now,
     };
@@ -117,7 +121,7 @@ export const tripService = {
     }
     const { data } = await supabase
       .from("trips")
-      .update(updates as any)
+      .update(updates)
       .eq("id", tripId)
       .select()
       .single();
@@ -134,7 +138,7 @@ export const tripService = {
         cancelled_by: cancelledBy,
         cancelled_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      } as any)
+      } satisfies TablesUpdate<"trips">)
       .eq("id", tripId)
       .select()
       .single();
@@ -202,13 +206,13 @@ export const tripService = {
       .select("*")
       .in("status", ["completed", "cancelled"])
       .order("updated_at", { ascending: false });
-    const rows = (data || []).map((t: any) => {
+    const rows = (data || []).map((t) => {
       return `${t.code || ""},${t.requested_at?.split("T")[0] || ""},"${t.passenger_name || ""}","${t.pickup_address || ""}",${t.final_price ?? t.estimated_price ?? ""},,${t.status === "completed" ? "completado" : "cancelada"}`;
     });
     return ["Código,Fecha,Pasajero,Origen,Tarifa,Distancia,Estado", ...rows].join("\n");
   },
 
-  subscribe(callback: (payload: any) => void) {
+  subscribe(callback: (payload: RealtimePostgresChangesPayload<Tables<"trips">>) => void) {
     const supabase = createClient();
     return supabase
       .channel("trips-realtime")

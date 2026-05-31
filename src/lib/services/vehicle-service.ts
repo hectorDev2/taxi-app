@@ -1,7 +1,32 @@
 import { createClient } from "@/lib/supabase/client";
+import type { Database, Tables, TablesUpdate } from "@/lib/database.types";
+import type { RealtimePostgresChangesPayload } from "@supabase/realtime-js";
 import type { AppVehicle, AppVehicleLocation } from "./types";
 
-function mapVehicle(row: any, driverName?: string): AppVehicle {
+type VehicleWithProfile = Tables<"vehicles"> & {
+  profiles?: { full_name: string | null };
+};
+
+type NearbyDriverRow = Database["public"]["Functions"]["nearby_drivers"]["Returns"][number] & {
+  vehicle_type?: string;
+};
+
+interface NearestUnitResult {
+  id: string;
+  codigo: string;
+  placa: string;
+  tipo_unidad: "pasajeros" | "carga_pasajeros";
+  capacidad: number;
+  estado_actual: string;
+  activa: boolean;
+  conductor_asignado: string | undefined;
+  distancia: number | undefined;
+  conductor_id: string | undefined;
+  latitud: number | undefined;
+  longitud: number | undefined;
+}
+
+function mapVehicle(row: Tables<"vehicles">, driverName?: string): AppVehicle {
   return {
     id: row.id,
     codigo: row.code || `V-${row.id?.slice(0, 4)?.toUpperCase()}`,
@@ -25,7 +50,7 @@ export const vehicleService = {
       .from("vehicles")
       .select("*, profiles!vehicles_owner_id_fkey(full_name)")
       .order("created_at", { ascending: false });
-    return (vehicles || []).map((v: any) =>
+    return (vehicles || []).map((v: VehicleWithProfile) =>
       mapVehicle(v, v.profiles?.full_name || undefined)
     );
   },
@@ -38,7 +63,7 @@ export const vehicleService = {
       .eq("id", id)
       .single();
     if (!data) return null;
-    return mapVehicle(data, (data as any).profiles?.full_name || undefined);
+    return mapVehicle(data, (data as VehicleWithProfile).profiles?.full_name || undefined);
   },
 
   async create(input: {
@@ -64,16 +89,18 @@ export const vehicleService = {
         seats: input.capacidad,
         owner_id: input.conductor_id,
         is_active: true,
+      // FIXME: supabase strict typing — brand/model/year are non-nullable in generated types
+      // but we pass null when the input is empty, which the DB allows at the constraint level
       } as any)
       .select("*, profiles!vehicles_owner_id_fkey(full_name)")
       .single();
     if (!data) return null;
-    return mapVehicle(data, (data as any).profiles?.full_name || undefined);
+    return mapVehicle(data, (data as VehicleWithProfile).profiles?.full_name || undefined);
   },
 
   async update(id: string, input: Partial<AppVehicle>): Promise<AppVehicle | null> {
     const supabase = createClient();
-    const updates: Record<string, any> = {};
+    const updates: TablesUpdate<"vehicles"> = {};
     if (input.placa) updates.license_plate = input.placa;
     if (input.tipo_unidad) updates.vehicle_type = input.tipo_unidad === "carga_pasajeros" ? "cargo_passengers" : "passengers";
     if (input.capacidad) updates.seats = input.capacidad;
@@ -84,12 +111,12 @@ export const vehicleService = {
     if (input.anio) updates.year = input.anio;
     const { data } = await supabase
       .from("vehicles")
-      .update(updates as any)
+      .update(updates)
       .eq("id", id)
       .select("*, profiles!vehicles_owner_id_fkey(full_name)")
       .single();
     if (!data) return null;
-    return mapVehicle(data, (data as any).profiles?.full_name || undefined);
+    return mapVehicle(data, (data as VehicleWithProfile).profiles?.full_name || undefined);
   },
 
   async getUbicaciones(): Promise<AppVehicleLocation[]> {
@@ -112,8 +139,8 @@ export const vehicleService = {
         longitud: d.current_longitude!,
         velocidad: 0,
         fecha_hora: d.last_location_update || new Date().toISOString(),
-        codigo: (v as any)?.code || undefined,
-        placa: (v as any)?.license_plate || undefined,
+        codigo: v?.code || undefined,
+        placa: v?.license_plate || undefined,
       };
     });
   },
@@ -143,7 +170,7 @@ export const vehicleService = {
     };
   },
 
-  async nearestUnits(lat: number, lng: number, tipo?: string): Promise<any[]> {
+  async nearestUnits(lat: number, lng: number, tipo?: string): Promise<NearestUnitResult[]> {
     const supabase = createClient();
     const tipoFiltro = tipo === "carga_pasajeros" ? "cargo_passengers" : undefined;
     const { data } = await supabase.rpc("nearby_drivers", {
@@ -152,21 +179,21 @@ export const vehicleService = {
       radius_km: 10,
     });
     if (!data) return [];
-    return data
-      .filter((d: any) => !tipoFiltro || (d as any).vehicle_type === tipoFiltro)
-      .map((d: any) => ({
-        id: (d as any).vehicle_id,
-        codigo: `V-${(d as any).vehicle_id?.slice(0, 4)?.toUpperCase()}`,
+    return (data as NearbyDriverRow[])
+      .filter((d) => !tipoFiltro || d.vehicle_type === tipoFiltro)
+      .map((d) => ({
+        id: d.vehicle_id,
+        codigo: `V-${d.vehicle_id?.slice(0, 4)?.toUpperCase()}`,
         placa: "",
-        tipo_unidad: (d as any).vehicle_type === "cargo_passengers" ? "carga_pasajeros" : "pasajeros",
-        capacidad: (d as any).vehicle_seats,
+        tipo_unidad: (d.vehicle_type === "cargo_passengers" ? "carga_pasajeros" : "pasajeros") as NearestUnitResult["tipo_unidad"],
+        capacidad: d.vehicle_seats,
         estado_actual: "libre",
         activa: true,
-        conductor_asignado: (d as any).full_name,
-        distancia: (d as any).distance_km,
-        conductor_id: (d as any).id,
-        latitud: (d as any).current_latitude,
-        longitud: (d as any).current_longitude,
+        conductor_asignado: d.full_name,
+        distancia: d.distance_km,
+        conductor_id: d.id,
+        latitud: d.current_latitude,
+        longitud: d.current_longitude,
       }));
   },
 
@@ -176,7 +203,7 @@ export const vehicleService = {
     return !error;
   },
 
-  subscribe(callback: (payload: any) => void) {
+  subscribe(callback: (payload: RealtimePostgresChangesPayload<Tables<"vehicles">>) => void) {
     const supabase = createClient();
     return supabase
       .channel("vehicles-realtime")
