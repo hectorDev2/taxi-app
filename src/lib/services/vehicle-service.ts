@@ -121,12 +121,14 @@ export const vehicleService = {
 
   async getUbicaciones(): Promise<AppVehicleLocation[]> {
     const supabase = createClient();
+    const cincoMinAtras = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const { data: drivers } = await supabase
       .from("profiles")
       .select("id, full_name, current_latitude, current_longitude, last_location_update")
       .eq("role", "driver")
       .not("current_latitude", "is", null)
-      .not("current_longitude", "is", null);
+      .not("current_longitude", "is", null)
+      .gte("last_location_update", cincoMinAtras);
     const { data: vehicles } = await supabase
       .from("vehicles")
       .select("id, code, license_plate, owner_id");
@@ -158,7 +160,7 @@ export const vehicleService = {
       .select("current_latitude, current_longitude, last_location_update")
       .eq("id", vehicle.owner_id)
       .single();
-    if (!driver?.current_latitude || !driver?.current_longitude) return null;
+    if (driver?.current_latitude == null || driver?.current_longitude == null) return null;
     return {
       unidad_id: vehicle.id,
       latitud: driver.current_latitude,

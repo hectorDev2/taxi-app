@@ -78,7 +78,7 @@ export interface AppVehicleLocation {
 export interface AppTrip {
   id: string;
   codigo: string;
-  canal_origen: "telefono" | "app" | "presencial";
+  canal_origen: "telefono" | "whatsapp" | "app" | "presencial";
   nombre_pasajero: string;
   telefono_pasajero: string;
   punto_recojo_texto: string;

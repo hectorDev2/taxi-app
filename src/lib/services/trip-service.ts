@@ -8,7 +8,7 @@ function mapTrip(row: Tables<"trips">): AppTrip {
   return {
     id: row.id,
     codigo: row.code || `S-${row.id?.slice(0, 4)?.toUpperCase()}`,
-    canal_origen: (row.channel || "telefono") as AppTrip["canal_origen"],
+    canal_origen: (row.channel === "whatsapp" ? "whatsapp" : row.channel === "phone" ? "telefono" : row.channel === "app" ? "app" : row.channel === "presencial" ? "presencial" : "telefono") as AppTrip["canal_origen"],
     nombre_pasajero: row.passenger_name || "",
     telefono_pasajero: row.passenger_phone || "",
     punto_recojo_texto: row.pickup_address || "",

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, Phone, Car, Clock, User, AlertTriangle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { X, Phone, Car, Clock, User, AlertTriangle, MessageCircle } from "lucide-react";
 import { tripService } from "@/lib/services/trip-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { profileService } from "@/lib/services/profile-service";
@@ -31,6 +31,21 @@ export default function DetalleModal({
   const [marcadorUnidad, setMarcadorUnidad] = useState<{ lat: number; lng: number; color: string; label: string; type: string } | null>(null);
   const [unidadesCercanas, setUnidadesCercanas] = useState<any[]>([]);
   const [cargandoUnidades, setCargandoUnidades] = useState(false);
+  const lastRouteFetch = useRef<{ lat: number; lng: number } | null>(null);
+
+  const shouldFetchRoute = (lat: number, lng: number) => {
+    if (!lastRouteFetch.current) return true;
+    const R2 = 6371e3;
+    const dLat = ((lat - lastRouteFetch.current.lat) * Math.PI) / 180;
+    const dLng = ((lng - lastRouteFetch.current.lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lastRouteFetch.current.lat * Math.PI) / 180) *
+        Math.cos((lat * Math.PI) / 180) *
+        Math.sin(dLng / 2) ** 2;
+    const dist = R2 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return dist > 50;
+  };
 
   const cargar = () => {
     tripService.getById(id)
@@ -59,7 +74,8 @@ export default function DetalleModal({
 
   useDriverLocationRealtime(sol?.conductor_id, (location) => {
     setMarcadorUnidad({ lat: location.lat, lng: location.lng, color: "#3b82f6", label: "Unidad", type: "taxi" });
-    if (sol?.longitud_recojo && sol?.latitud_recojo) {
+    if (sol?.longitud_recojo && sol?.latitud_recojo && shouldFetchRoute(location.lat, location.lng)) {
+      lastRouteFetch.current = { lat: location.lat, lng: location.lng };
       fetchRoute([location.lng, location.lat], [sol.longitud_recojo, sol.latitud_recojo])
         .then((pts) => setRuta(pts))
         .catch(() => {});
@@ -72,6 +88,7 @@ export default function DetalleModal({
         const ubi = await vehicleService.getUbicacion(sol.unidad_id).catch(() => null);
         if (ubi) {
           setMarcadorUnidad({ lat: ubi.latitud, lng: ubi.longitud, color: "#3b82f6", label: "Unidad", type: "taxi" });
+          lastRouteFetch.current = { lat: ubi.latitud, lng: ubi.longitud };
           const pts = await fetchRoute([ubi.longitud, ubi.latitud], [sol.longitud_recojo, sol.latitud_recojo]);
           setRuta(pts);
         }
@@ -154,14 +171,38 @@ export default function DetalleModal({
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">Teléfono</p>
-                    <p className="text-sm font-medium text-gray-900 flex items-center gap-1">
-                      <Phone className="w-3.5 h-3.5 text-gray-400" />
-                      {sol.telefono_pasajero || "No registrado"}
-                    </p>
+                    {sol.telefono_pasajero ? (
+                      <div className="flex items-center gap-2">
+                        <a href={`tel:${sol.telefono_pasajero}`} className="text-sm font-medium text-blue-600 hover:underline inline-flex items-center gap-1">
+                          <Phone className="w-3.5 h-3.5" />
+                          {sol.telefono_pasajero}
+                        </a>
+                        <a
+                          href={`https://wa.me/51${sol.telefono_pasajero.replace(/\D/g, "")}?text=${encodeURIComponent("Hola, soy tu operador de taxi.")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-600 hover:text-green-700"
+                          title="WhatsApp"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </a>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                        <Phone className="w-3.5 h-3.5 text-gray-400" />
+                        No registrado
+                      </p>
+                    )}
                   </div>
                   <div className="col-span-2">
                     <p className="text-xs text-gray-400">Canal de origen</p>
-                    <p className="text-sm font-medium text-gray-900 capitalize">{sol.canal_origen}</p>
+                    <p className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                      {sol.canal_origen === "whatsapp" ? (
+                        <><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> WhatsApp</>
+                      ) : (
+                        <span className="capitalize">{sol.canal_origen}</span>
+                      )}
+                    </p>
                   </div>
                 </div>
               </div>
