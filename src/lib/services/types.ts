@@ -73,6 +73,7 @@ export interface AppVehicleLocation {
   fecha_hora: string;
   codigo?: string;
   placa?: string;
+  conductor_id?: string;
 }
 
 export interface AppTrip {

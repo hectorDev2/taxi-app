@@ -230,25 +230,6 @@ export default function DetalleModal({
                 <MapboxMap
                   height="300px"
                   markers={[
-                    // Unidades disponibles
-                    ...unidadesCercanas
-                      .filter((u) => u.latitud && u.longitud)
-                      .map((u) => ({
-                        lat: u.latitud,
-                        lng: u.longitud,
-                        color: "#22c55e",
-                        label: u.codigo || "",
-                        type: "taxi" as const,
-                        popupHtml: `<div style="font-size:13px;line-height:1.5">
-                          <strong>${u.codigo || ""}</strong>${u.placa ? ` · ${u.placa}` : ""}<br>
-                          ${u.conductor_asignado || ""}<br>
-                          ${u.distancia < 1 ? `${(u.distancia * 1000).toFixed(0)} m` : `${u.distancia.toFixed(1)} km`}
-                          ${u.tipo_unidad === "pasajeros" ? " · Pasajeros" : " · Carga + Pasajeros"}
-                        </div>`,
-                        onClick: () => {
-                          if (u.id) asignarUnidad(u.id);
-                        },
-                      })),
                     // Unidad asignada
                     ...(marcadorUnidad ? [{
                       ...marcadorUnidad,

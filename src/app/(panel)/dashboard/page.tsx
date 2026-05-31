@@ -13,6 +13,7 @@ import { SkeletonCard, SkeletonMap } from "@/components/skeleton";
 import Modal from "@/components/modal";
 import TripCard from "@/components/trip-card";
 import CancelTripModal from "@/components/cancel-trip-modal";
+import SimuladorUbicaciones from "@/components/simulador-ubicaciones";
 
 const iconMap: Record<string, React.ElementType> = {
   libres: Car,
@@ -345,7 +346,8 @@ export default function DashboardPage() {
             {" "}<strong>Project Settings → API</strong> y que los CORS permitan <code>http://localhost:3000</code>.
           </div>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="flex items-start justify-between gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 flex-1">
           {loading ? (
             <>
               <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
@@ -366,6 +368,10 @@ export default function DashboardPage() {
               </div>
             );
           }))}
+        </div>
+          <div className="shrink-0 pt-1">
+            <SimuladorUbicaciones />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
