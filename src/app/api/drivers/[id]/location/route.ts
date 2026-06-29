@@ -51,12 +51,14 @@ export async function POST(
     );
   }
 
+  const now = new Date().toISOString();
+
   const { error: updateError } = await supabase
     .from("profiles")
     .update({
       current_latitude: latitude,
       current_longitude: longitude,
-      last_location_update: new Date().toISOString(),
+      last_location_update: now,
     })
     .eq("id", driverId);
 
@@ -67,6 +69,17 @@ export async function POST(
       { status: 500 }
     );
   }
+
+  // Also update driver location on the active trip so the panel can track it
+  await supabase
+    .from("trips")
+    .update({
+      driver_current_latitude: latitude,
+      driver_current_longitude: longitude,
+      driver_location_updated_at: now,
+    })
+    .eq("driver_id", driverId)
+    .in("status", ["accepted", "arrived", "in_progress"]);
 
   return NextResponse.json({ success: true }, { status: 200 });
 }

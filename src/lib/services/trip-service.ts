@@ -95,6 +95,7 @@ export const tripService = {
         driver_id: driverId,
         vehicle_id: vehicleId,
         operator_id: operatorId,
+        status: "assigned",
         updated_at: new Date().toISOString(),
       })
       .eq("id", tripId)

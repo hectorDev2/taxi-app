@@ -15,6 +15,7 @@ import usePagination from "@/hooks/usePagination";
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Pendiente",
   asignada: "Asignada",
+  assigned: "Asignada",
   aceptada: "Aceptada",
   conductor_llego: "Conductor llegó",
   servicio_iniciado: "Servicio iniciado",
@@ -183,7 +184,11 @@ function SolicitudesContent() {
       </div>
 
       {detalleId && (
-        <DetalleModal id={detalleId} onClose={() => router.push("/solicitudes")} />
+        <DetalleModal
+          id={detalleId}
+          onClose={() => router.push("/solicitudes")}
+          onMutate={() => tripService.list().then(setSolicitudes).catch(() => {})}
+        />
       )}
     </>
   );

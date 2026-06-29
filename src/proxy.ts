@@ -40,28 +40,38 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Authenticated user on login page → redirect to dashboard
-  if (user && pathname === "/") {
+  const role = user?.user_metadata?.role as string | undefined;
+  const isDriver = role === "driver";
+
+  // Authenticated user on login pages → redirect by role
+  if (user && (pathname === "/" || pathname === "/driver")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = isDriver ? "/driver/dashboard" : "/dashboard";
     return NextResponse.redirect(url);
   }
 
   // Unauthenticated user on protected route → redirect to login
-  if (
-    !user &&
-    pathname !== "/" &&
-    !pathname.startsWith("/_next") &&
-    !pathname.startsWith("/api")
-  ) {
-    const isProtected = protectedRoutes.some((route) =>
-      pathname.startsWith(route)
-    );
+  if (!user && pathname !== "/" && !pathname.startsWith("/_next") && !pathname.startsWith("/api")) {
+    const isProtected = protectedRoutes.some((route) => pathname.startsWith(route));
     if (isProtected) {
       const url = request.nextUrl.clone();
-      url.pathname = "/";
+      url.pathname = pathname.startsWith("/driver") ? "/driver" : "/";
       return NextResponse.redirect(url);
     }
+  }
+
+  // Conductor trying to access panel → send to driver dashboard
+  if (user && isDriver && !pathname.startsWith("/driver") && !pathname.startsWith("/api")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/driver/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  // Non-conductor trying to access driver section → send to panel
+  if (user && !isDriver && pathname.startsWith("/driver")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
   }
 
   return supabaseResponse;

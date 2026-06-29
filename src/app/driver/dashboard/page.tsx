@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { tripService } from "@/lib/services/trip-service";
 import { useTripsRealtime } from "@/lib/services/realtime";
 import LocationTracker from "@/components/location-tracker";
-import MapboxMap from "@/components/map";
+import MapboxMap, { fetchRoute } from "@/components/map";
 import { Car, Clock, CheckCircle, MapPin, Navigation, Star, X, Phone, Zap, PowerOff, AlertCircle } from "lucide-react";
 import Modal from "@/components/modal";
 import { getEstadoFlujo } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/client";
 
 const ESTADOS_FLUJO = getEstadoFlujo("asignada");
 
@@ -18,22 +19,51 @@ export default function DriverDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [actualizando, setActualizando] = useState<string | null>(null);
   const [cancelModal, setCancelModal] = useState<{ id: string; motivo: string } | null>(null);
+  const [rechazarModal, setRechazarModal] = useState<{ id: string; motivo: string } | null>(null);
   const [online, setOnline] = useState(true);
+  const [viajesHoy, setViajesHoy] = useState(0);
   const [miUbicacion, setMiUbicacion] = useState<{ lat: number; lng: number } | null>(null);
+  const lastLocationRef = useRef<{ lat: number; lng: number } | null>(null);
   const [ruta, setRuta] = useState<[number, number][] | null>(null);
 
   const cargarViajes = () => {
     if (!user) return;
-    tripService.list()
-      .then((list) => {
-        const conductorId = user.supabase_id || user.id;
-        const activos = list.filter(
-          (s) => s.conductor_id === conductorId && !["servicio_completado", "cancelada"].includes(s.estado)
-        );
+    const conductorId = user.supabase_id || user.id;
+    const supabase = createClient();
+    const hoy = new Date().toISOString().split("T")[0];
+
+    Promise.all([
+      tripService.list(),
+      supabase
+        .from("trips")
+        .select("id", { count: "exact", head: true })
+        .eq("driver_id", conductorId)
+        .eq("status", "completed")
+        .gte("completed_at", `${hoy}T00:00:00`),
+    ])
+      .then(([list, { count }]) => {
+        const activos = list
+          .filter((s) => s.conductor_id === conductorId && !["servicio_completado", "cancelada"].includes(s.estado))
+          .map((s) => s.estado === "pendiente" ? { ...s, estado: "asignada" } : s);
         setMisViajes(activos);
+        setViajesHoy(count ?? 0);
+        viajeActivoRef.current = activos[0] ?? null;
+        // Recalcular ruta si ya tenemos ubicación
+        const loc = lastLocationRef.current;
+        if (loc && activos[0]) actualizarRuta(loc.lat, loc.lng, activos[0]);
       })
       .catch((e) => console.error("Error cargando viajes:", e))
       .finally(() => setLoading(false));
+  };
+
+  const toggleOnline = async (value: boolean) => {
+    setOnline(value);
+    if (!user?.supabase_id) return;
+    const supabase = createClient();
+    await supabase
+      .from("profiles")
+      .update({ is_online: value, updated_at: new Date().toISOString() })
+      .eq("id", user.supabase_id);
   };
 
   useEffect(() => {
@@ -46,9 +76,34 @@ export default function DriverDashboardPage() {
     cargarViajes();
   });
 
-  const handleLocationUpdate = useCallback((lat: number, lng: number) => {
-    setMiUbicacion({ lat, lng });
+  const viajeActivoRef = useRef<any>(null);
+
+  // Actualizar ruta cada vez que cambia la ubicación o el estado del viaje
+  const actualizarRuta = useCallback(async (lat: number, lng: number, viaje: any) => {
+    if (!viaje) { setRuta(null); return; }
+
+    // aceptada / conductor_llego → ruta hacia el punto de recojo
+    if (["aceptada", "conductor_llego"].includes(viaje.estado) && viaje.latitud_recojo && viaje.longitud_recojo) {
+      const pts = await fetchRoute([lng, lat], [viaje.longitud_recojo, viaje.latitud_recojo]);
+      if (pts) setRuta(pts);
+      return;
+    }
+
+    // servicio_iniciado → ruta hacia el destino
+    if (viaje.estado === "servicio_iniciado" && viaje.latitud_destino && viaje.longitud_destino) {
+      const pts = await fetchRoute([lng, lat], [viaje.longitud_destino, viaje.latitud_destino]);
+      if (pts) setRuta(pts);
+      return;
+    }
+
+    setRuta(null);
   }, []);
+
+  const handleLocationUpdate = useCallback((lat: number, lng: number) => {
+    lastLocationRef.current = { lat, lng };
+    setMiUbicacion({ lat, lng });
+    actualizarRuta(lat, lng, viajeActivoRef.current);
+  }, [actualizarRuta]);
 
   const actualizarEstado = async (tripId: string, nuevoEstado: string) => {
     setActualizando(tripId);
@@ -61,6 +116,23 @@ export default function DriverDashboardPage() {
     if (!cancelModal?.motivo) return;
     await tripService.cancel(cancelModal.id, cancelModal.motivo, "driver");
     setCancelModal(null);
+    cargarViajes();
+  };
+
+  const rechazarAsignacion = async () => {
+    if (!rechazarModal?.motivo) return;
+    const supabase = createClient();
+    // Devuelve el viaje a pendiente y limpia conductor/unidad
+    await supabase
+      .from("trips")
+      .update({
+        status: "pending",
+        driver_id: null,
+        vehicle_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", rechazarModal.id);
+    setRechazarModal(null);
     cargarViajes();
   };
 
@@ -106,7 +178,7 @@ export default function DriverDashboardPage() {
           </div>
         </div>
         <button
-          onClick={() => setOnline(!online)}
+          onClick={() => toggleOnline(!online)}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
             online ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
           }`}
@@ -120,7 +192,7 @@ export default function DriverDashboardPage() {
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Viajes Hoy", value: misViajes.filter(v => v.estado === "servicio_completado").length, color: "bg-green-500" },
+            { label: "Viajes Hoy", value: viajesHoy, color: "bg-green-500" },
             { label: "Activos", value: misViajes.length, color: "bg-yellow-500" },
             { label: "Online", value: online ? "Sí" : "No", color: "bg-blue-500" },
           ].map((item) => (
@@ -252,13 +324,21 @@ export default function DriverDashboardPage() {
             {/* Action buttons */}
             <div className="flex gap-2 px-5 pb-5">
               {viajeActivo.estado === "asignada" && (
-                <button
-                  onClick={() => actualizarEstado(viajeActivo.id, "aceptada")}
-                  disabled={actualizando === viajeActivo.id}
-                  className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 disabled:bg-green-200 text-white text-sm font-semibold rounded-lg transition-colors"
-                >
-                  {actualizando === viajeActivo.id ? "..." : "Aceptar Viaje"}
-                </button>
+                <>
+                  <button
+                    onClick={() => setRechazarModal({ id: viajeActivo.id, motivo: "" })}
+                    className="flex-1 py-2.5 border border-red-300 text-red-600 hover:bg-red-50 text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    Rechazar
+                  </button>
+                  <button
+                    onClick={() => actualizarEstado(viajeActivo.id, "aceptada")}
+                    disabled={actualizando === viajeActivo.id}
+                    className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 disabled:bg-green-200 text-white text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    {actualizando === viajeActivo.id ? "..." : "Aceptar"}
+                  </button>
+                </>
               )}
               {viajeActivo.estado === "aceptada" && (
                 <button
@@ -287,10 +367,12 @@ export default function DriverDashboardPage() {
                   {actualizando === viajeActivo.id ? "..." : "Completar Viaje"}
                 </button>
               )}
-              {viajeActivo.estado !== "servicio_completado" && viajeActivo.estado !== "cancelada" && (
+              {/* Cancelar solo disponible una vez aceptado el viaje */}
+              {["aceptada", "conductor_llego", "servicio_iniciado"].includes(viajeActivo.estado) && (
                 <button
                   onClick={() => setCancelModal({ id: viajeActivo.id, motivo: "" })}
                   className="px-4 py-2.5 border border-red-300 text-red-600 hover:bg-red-50 text-sm font-medium rounded-lg transition-colors"
+                  title="Cancelar viaje"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -327,6 +409,36 @@ export default function DriverDashboardPage() {
               className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 disabled:bg-red-200 text-white text-sm font-medium rounded-lg transition-colors"
             >
               Confirmar
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!rechazarModal} onClose={() => setRechazarModal(null)} title="Rechazar Asignación" maxWidth="sm">
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-gray-500">El viaje volverá a estado pendiente y el operador podrá reasignarlo a otro conductor.</p>
+          <select
+            value={rechazarModal?.motivo || ""}
+            onChange={(e) => setRechazarModal(rechazarModal ? { ...rechazarModal, motivo: e.target.value } : null)}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm"
+          >
+            <option value="">Motivo del rechazo</option>
+            <option value="Zona muy lejana">Zona muy lejana</option>
+            <option value="Vehículo en mantenimiento">Vehículo en mantenimiento</option>
+            <option value="Turno terminado">Turno terminado</option>
+            <option value="Ya tengo un servicio">Ya tengo un servicio</option>
+            <option value="Otro">Otro</option>
+          </select>
+          <div className="flex gap-3">
+            <button onClick={() => setRechazarModal(null)} className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+              Volver
+            </button>
+            <button
+              onClick={rechazarAsignacion}
+              disabled={!rechazarModal?.motivo}
+              className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-200 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              Rechazar
             </button>
           </div>
         </div>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 
-const UPDATE_INTERVAL_MS = 10_000;
+const UPDATE_INTERVAL_MS = 120_000; // 2 minutos
 
 interface LocationTrackerProps {
   enabled?: boolean;

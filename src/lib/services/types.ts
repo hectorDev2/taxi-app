@@ -22,6 +22,7 @@ export const ROLE_MAP_REVERSE: Record<AppRole, string> = {
 
 export const TRIP_STATUS_MAP: Record<string, string> = {
   pending: "pendiente",
+  assigned: "asignada",
   accepted: "aceptada",
   arrived: "conductor_llego",
   in_progress: "servicio_iniciado",
@@ -31,7 +32,7 @@ export const TRIP_STATUS_MAP: Record<string, string> = {
 
 export const TRIP_STATUS_MAP_REVERSE: Record<string, string> = {
   pendiente: "pending",
-  asignada: "pending",
+  asignada: "assigned",
   aceptada: "accepted",
   conductor_llego: "arrived",
   servicio_iniciado: "in_progress",

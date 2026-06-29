@@ -20,9 +20,9 @@ export default function DriverLoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const ok = await login(email, password);
+    const loggedUser = await login(email, password);
     setLoading(false);
-    if (ok) {
+    if (loggedUser) {
       toast("Inicio de sesión exitoso");
       router.push("/driver/dashboard");
     } else {

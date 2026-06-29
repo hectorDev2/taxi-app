@@ -7,7 +7,7 @@ import type { AppUser } from "@/lib/services/types";
 interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<AppUser | null>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<string | null>;
 }
@@ -15,7 +15,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
-  login: async () => false,
+  login: async () => null,
   logout: async () => {},
   resetPassword: async () => null,
 });
@@ -79,11 +79,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return false;
+    if (error) return null;
     if (data.session?.user) {
-      setUser(mapSessionToUsuario(data.session.user as any));
+      const mapped = mapSessionToUsuario(data.session.user as any);
+      setUser(mapped);
+      return mapped;
     }
-    return true;
+    return null;
   }, [supabase]);
 
   const logout = useCallback(async () => {

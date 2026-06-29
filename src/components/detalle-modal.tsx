@@ -14,9 +14,11 @@ import { TRIP_STATUS_BADGE } from "@/lib/constants";
 export default function DetalleModal({
   id,
   onClose,
+  onMutate,
 }: {
   id: string;
   onClose: () => void;
+  onMutate?: () => void;
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -114,6 +116,7 @@ export default function DetalleModal({
     try {
       await tripService.assign(sol.id, unidadId, u.conductor_id || user.id, user.supabase_id || user.id);
       toast(`Unidad ${u.codigo} asignada a ${sol.codigo}`);
+      onMutate?.();
       cargar();
     } catch (e: any) {
       toast(e.message, "error");
@@ -130,6 +133,7 @@ export default function DetalleModal({
       setShowCancelar(false);
       setMotivoCancelacion("");
       toast(`Solicitud ${sol.codigo} cancelada`);
+      onMutate?.();
       cargar();
     } catch (e: any) {
       toast(e.message, "error");
@@ -326,6 +330,7 @@ export default function DetalleModal({
                         try {
                           await tripService.updateStatus(sol.id, "servicio_completado", user?.supabase_id);
                           toast(`Viaje ${sol.codigo} completado`);
+                          onMutate?.();
                           cargar();
                         } catch (e: any) {
                           toast(e.message, "error");
