@@ -1,19 +1,36 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const protectedRoutes = [
+const PANEL_ROUTES = [
   "/dashboard",
   "/solicitudes",
   "/unidades",
   "/usuarios",
   "/historial",
   "/configuracion",
-  "/driver",
-  "/driver/dashboard",
+  "/seguimiento",
 ];
+
+function redirect(request: NextRequest, pathname: string, base: NextResponse): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  const res = NextResponse.redirect(url);
+  // Copiar cookies de sesión actualizadas al redirect para no perder el refresh token
+  base.cookies.getAll().forEach(({ name, value }) => res.cookies.set(name, value));
+  return res;
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Pasar RSC y assets sin tocarlos
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.includes(".")
+  ) {
+    return NextResponse.next({ request });
+  }
 
   let supabaseResponse = NextResponse.next({ request });
 
@@ -24,9 +41,7 @@ export async function proxy(request: NextRequest) {
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
@@ -36,49 +51,44 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   const role = user?.user_metadata?.role as string | undefined;
   const isDriver = role === "driver";
 
-  // Authenticated user on login pages → redirect by role
-  if (user && (pathname === "/" || pathname === "/driver")) {
-    const url = request.nextUrl.clone();
-    url.pathname = isDriver ? "/driver/dashboard" : "/dashboard";
-    return NextResponse.redirect(url);
+
+  const isPanelRoute = PANEL_ROUTES.some((r) => pathname.startsWith(r));
+  const isDriverDashboard = pathname.startsWith("/driver/dashboard");
+  const isDriverLogin = pathname === "/driver";
+  const isMainLogin = pathname === "/";
+
+  // — Sin sesión —
+  if (!user) {
+    if (isDriverDashboard) return redirect(request, "/driver", supabaseResponse);
+    if (isPanelRoute) return redirect(request, "/", supabaseResponse);
+    return supabaseResponse;
   }
 
-  // Unauthenticated user on protected route → redirect to login
-  if (!user && pathname !== "/" && !pathname.startsWith("/_next") && !pathname.startsWith("/api")) {
-    const isProtected = protectedRoutes.some((route) => pathname.startsWith(route));
-    if (isProtected) {
-      const url = request.nextUrl.clone();
-      url.pathname = pathname.startsWith("/driver") ? "/driver" : "/";
-      return NextResponse.redirect(url);
-    }
+  // — Con sesión —
+
+  // Páginas de login → redirigir al destino según rol
+  if (isMainLogin || isDriverLogin) {
+    return redirect(request, isDriver ? "/driver/dashboard" : "/dashboard", supabaseResponse);
   }
 
-  // Conductor trying to access panel → send to driver dashboard
-  if (user && isDriver && !pathname.startsWith("/driver") && !pathname.startsWith("/api")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/driver/dashboard";
-    return NextResponse.redirect(url);
+  // Conductor intentando entrar al panel
+  if (isDriver && isPanelRoute) {
+    return redirect(request, "/driver/dashboard", supabaseResponse);
   }
 
-  // Non-conductor trying to access driver section → send to panel
-  if (user && !isDriver && pathname.startsWith("/driver")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+  // No conductor intentando entrar al dashboard del conductor
+  if (!isDriver && isDriverDashboard) {
+    return redirect(request, "/dashboard", supabaseResponse);
   }
 
   return supabaseResponse;
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };

@@ -1,34 +1,38 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Car, Eye, EyeOff } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/toast";
+import { driverLogin } from "./actions";
 
 export default function DriverLoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
   const { toast } = useToast();
+
+  const DEV_CONDUCTORES = process.env.NODE_ENV === "development" ? [
+    { label: "Carlos", email: "carlos@apptaxi.com" },
+    { label: "Ana", email: "ana@apptaxi.com" },
+    { label: "Pedro", email: "pedro@apptaxi.com" },
+  ] : [];
+
+  const doLogin = async (emailVal: string, passwordVal: string) => {
+    setError("");
+    setLoading(true);
+    const err = await driverLogin(emailVal, passwordVal);
+    setLoading(false);
+    if (err) {
+      setError(err);
+      toast(err, "error");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
-    const loggedUser = await login(email, password);
-    setLoading(false);
-    if (loggedUser) {
-      toast("Inicio de sesión exitoso");
-      router.push("/driver/dashboard");
-    } else {
-      setError("Credenciales incorrectas");
-      toast("Credenciales incorrectas", "error");
-    }
+    await doLogin(email, password);
   };
 
   return (
@@ -92,6 +96,24 @@ export default function DriverLoginPage() {
             {loading ? "Ingresando..." : "Iniciar sesión"}
           </button>
         </form>
+
+        {DEV_CONDUCTORES.length > 0 && (
+          <div className="mt-6 pt-5 border-t border-dashed border-white/30">
+            <p className="text-xs text-white/60 text-center mb-3">⚡ Acceso rápido (solo dev)</p>
+            <div className="flex gap-2">
+              {DEV_CONDUCTORES.map((c) => (
+                <button
+                  key={c.email}
+                  type="button"
+                  onClick={() => { setEmail(c.email); setPassword("conductor123456"); doLogin(c.email, "conductor123456"); }}
+                  className="flex-1 text-xs font-medium px-3 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors"
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

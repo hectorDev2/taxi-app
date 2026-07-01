@@ -6,7 +6,8 @@ import { tripService } from "@/lib/services/trip-service";
 import { useTripsRealtime } from "@/lib/services/realtime";
 import LocationTracker from "@/components/location-tracker";
 import MapboxMap, { fetchRoute } from "@/components/map";
-import { Car, Clock, CheckCircle, MapPin, Navigation, Star, X, Phone, Zap, PowerOff, AlertCircle } from "lucide-react";
+import { Car, Clock, CheckCircle, MapPin, Navigation, Star, X, Phone, Zap, PowerOff, AlertCircle, LogOut } from "lucide-react";
+import { driverLogout } from "../actions";
 import Modal from "@/components/modal";
 import { getEstadoFlujo } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
@@ -177,15 +178,26 @@ export default function DriverDashboardPage() {
             <p className="text-xs text-gray-400">App Conductor</p>
           </div>
         </div>
-        <button
-          onClick={() => toggleOnline(!online)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            online ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-          }`}
-        >
-          {online ? <Zap className="w-3.5 h-3.5" /> : <PowerOff className="w-3.5 h-3.5" />}
-          {online ? "En línea" : "Desconectado"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => toggleOnline(!online)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              online ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            {online ? <Zap className="w-3.5 h-3.5" /> : <PowerOff className="w-3.5 h-3.5" />}
+            {online ? "En línea" : "Desconectado"}
+          </button>
+          <form action={driverLogout}>
+            <button
+              type="submit"
+              className="p-1.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+              title="Cerrar sesión"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
       </div>
 
       <div className="p-4 space-y-4 max-w-xl mx-auto">

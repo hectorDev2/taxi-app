@@ -11,6 +11,7 @@ import {
   Users,
   Settings,
   LogOut,
+  Radar,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import type { AppUser } from "@/lib/services/types";
@@ -26,6 +27,7 @@ const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "operador", "conductor"] },
   { label: "Unidades", href: "/unidades", icon: Car, roles: ["admin", "operador"] },
   { label: "Solicitudes", href: "/solicitudes", icon: ClipboardList, roles: ["admin", "operador"] },
+  { label: "Seguimiento", href: "/seguimiento", icon: Radar, roles: ["admin", "operador"] },
   { label: "Historial", href: "/historial", icon: History, roles: ["admin", "operador"] },
   { label: "Usuarios", href: "/usuarios", icon: Users, roles: ["admin"] },
   { label: "Configuración", href: "/configuracion", icon: Settings, roles: ["admin", "operador"] },

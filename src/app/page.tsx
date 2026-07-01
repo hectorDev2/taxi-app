@@ -32,7 +32,8 @@ export default function LoginPage() {
     setLoading(false);
     if (loggedUser) {
       toast("Inicio de sesión exitoso");
-      router.push(loggedUser.rol === "conductor" ? "/driver/dashboard" : "/dashboard");
+      // Navegación completa para que el proxy lea las cookies de sesión correctamente
+      window.location.href = loggedUser.rol === "conductor" ? "/driver/dashboard" : "/dashboard";
     } else {
       setError("Credenciales incorrectas");
       toast("Credenciales incorrectas", "error");
