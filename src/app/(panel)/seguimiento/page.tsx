@@ -81,8 +81,8 @@ export default function SeguimientoPage() {
         status: t.status,
         lat: t.driver_current_latitude!,
         lng: t.driver_current_longitude!,
-        pickupAddress: t.pickup_address,
-        dropoffAddress: t.dropoff_address,
+        pickupAddress: t.pickup_address ?? "",
+        dropoffAddress: t.dropoff_address ?? "",
         updatedAt: t.driver_location_updated_at,
       }));
 

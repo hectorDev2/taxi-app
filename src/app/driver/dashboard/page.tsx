@@ -328,7 +328,7 @@ export default function DriverDashboardPage() {
                   routes={ruta ? [{ points: ruta, color: "#3b82f6" }] : []}
                   center={miUbicacion && online ? [miUbicacion.lng, miUbicacion.lat] : [viajeActivo.longitud_recojo, viajeActivo.latitud_recojo]}
                   zoom={13}
-                  interactive={false}
+                  interactive={true}
                 />
               </div>
             )}
