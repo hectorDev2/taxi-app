@@ -109,6 +109,7 @@ export const vehicleService = {
     if (input.marca) updates.brand = input.marca;
     if (input.modelo) updates.model = input.modelo;
     if (input.anio) updates.year = input.anio;
+    if (input.conductor_id) updates.owner_id = input.conductor_id;
     const { data } = await supabase
       .from("vehicles")
       .update(updates)

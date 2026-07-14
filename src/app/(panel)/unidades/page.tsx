@@ -105,6 +105,7 @@ export default function UnidadesPage() {
           anio: form.anio ? Number(form.anio) : undefined,
           tipo_unidad: form.tipo_unidad,
           capacidad: Number(form.capacidad),
+          conductor_id: form.conductor_id,
         });
         toast("Unidad actualizada");
       } else {
