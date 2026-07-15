@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Car, Eye, EyeOff } from "lucide-react";
+import { Car, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/toast";
 
@@ -17,10 +17,10 @@ export default function LoginPage() {
   const { login, resetPassword } = useAuth();
 
   const DEV_USERS = process.env.NODE_ENV === "development" ? [
-    { label: "Admin", email: "admin@apptaxi.com", password: "admin123456", color: "bg-purple-100 text-purple-700 hover:bg-purple-200" },
-    { label: "Operador", email: "operador1@apptaxi.com", password: "operador123456", color: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
-    { label: "Carlos (conductor)", email: "carlos@apptaxi.com", password: "conductor123456", color: "bg-green-100 text-green-700 hover:bg-green-200" },
-    { label: "Ana (conductora)", email: "ana@apptaxi.com", password: "conductor123456", color: "bg-green-100 text-green-700 hover:bg-green-200" },
+    { label: "Admin", email: "admin@apptaxi.com", password: "admin123456", gradient: "from-purple-500 to-violet-500" },
+    { label: "Operador", email: "operador1@apptaxi.com", password: "operador123456", gradient: "from-blue-500 to-cyan-500" },
+    { label: "Carlos (conductor)", email: "carlos@apptaxi.com", password: "conductor123456", gradient: "from-green-500 to-emerald-500" },
+    { label: "Ana (conductora)", email: "ana@apptaxi.com", password: "conductor123456", gradient: "from-green-500 to-emerald-500" },
   ] : [];
   const { toast } = useToast();
 
@@ -32,7 +32,6 @@ export default function LoginPage() {
     setLoading(false);
     if (loggedUser) {
       toast("Inicio de sesión exitoso");
-      // Navegación completa para que el proxy lea las cookies de sesión correctamente
       window.location.href = loggedUser.rol === "conductor" ? "/driver/dashboard" : "/dashboard";
     } else {
       setError("Credenciales incorrectas");
@@ -56,33 +55,37 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-yellow-400 via-yellow-300 to-yellow-500">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 mx-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-400 via-amber-400 to-yellow-500 relative overflow-hidden">
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute -top-20 -left-20 w-64 h-64 rounded-full bg-white" />
+        <div className="absolute -bottom-20 -right-20 w-96 h-96 rounded-full bg-white" />
+      </div>
+      <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl shadow-yellow-200/50 w-full max-w-md p-8 mx-4 relative">
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-yellow-400 p-4 rounded-full mb-4">
-            <Car className="w-8 h-8 text-white" />
+          <div className="bg-gradient-to-br from-yellow-400 to-amber-500 p-4 rounded-2xl shadow-lg shadow-yellow-200 mb-4">
+            <Car className="w-8 h-8 text-gray-900" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">AppTaxi</h1>
-          <p className="text-sm text-gray-500">Panel de Gestión</p>
+          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">AppTaxi</h1>
+          <p className="text-sm font-medium text-gray-400 mt-0.5">Panel de Gestión</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-bold text-gray-700 mb-1.5">
               Correo electrónico
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all"
               placeholder="tu@correo.com"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-bold text-gray-700 mb-1.5">
               Contraseña
             </label>
             <div className="relative">
@@ -90,7 +93,7 @@ export default function LoginPage() {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none"
+                className="w-full px-4 py-3 pr-11 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all"
                 placeholder="••••••••"
                 required
               />
@@ -98,9 +101,9 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label="Mostrar contraseña"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
               >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
@@ -110,35 +113,37 @@ export default function LoginPage() {
               type="button"
               onClick={handleReset}
               disabled={resetting}
-              className="text-sm text-yellow-600 hover:text-yellow-700 hover:underline disabled:text-gray-400"
+              className="text-sm font-semibold text-yellow-600 hover:text-yellow-700 hover:underline disabled:text-gray-400 transition-colors"
             >
               {resetting ? "Enviando..." : "¿Olvidaste tu contraseña?"}
             </button>
           </div>
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+            <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-xl">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 font-semibold py-2.5 rounded-lg transition-colors"
+            className="w-full bg-gradient-to-r from-yellow-400 to-amber-400 hover:from-yellow-500 hover:to-amber-500 disabled:from-gray-300 disabled:to-gray-300 text-gray-900 font-extrabold py-3 rounded-xl shadow-lg shadow-yellow-200/50 transition-all duration-200 active:scale-[0.98]"
           >
-            {loading ? "Ingresando..." : "Iniciar sesión"}
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+            ) : "Iniciar sesión"}
           </button>
         </form>
 
         {DEV_USERS.length > 0 && (
-          <div className="mt-6 pt-5 border-t border-dashed border-gray-200">
-            <p className="text-xs text-gray-400 text-center mb-3">⚡ Acceso rápido (solo dev)</p>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="mt-8 pt-6 border-t border-dashed border-gray-200">
+            <p className="text-xs font-semibold text-gray-400 text-center mb-4 uppercase tracking-wider">⚡ Acceso rápido (dev)</p>
+            <div className="grid grid-cols-2 gap-2.5">
               {DEV_USERS.map((u) => (
                 <button
                   key={u.email}
                   type="button"
                   onClick={() => { setEmail(u.email); setPassword(u.password); }}
-                  className={`text-xs font-medium px-3 py-2 rounded-lg transition-colors ${u.color}`}
+                  className={`text-xs font-bold px-3 py-2.5 rounded-xl text-white shadow-sm transition-all duration-200 active:scale-[0.97] bg-gradient-to-r ${u.gradient}`}
                 >
                   {u.label}
                 </button>

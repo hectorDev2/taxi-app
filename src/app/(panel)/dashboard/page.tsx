@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Header from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
-import { Car, Clock, CheckCircle, AlertTriangle, Phone, MapPin, Navigation, Star, Zap, Power, PowerOff, X } from "lucide-react";
+import { Car, Clock, CheckCircle, AlertTriangle, Phone, MapPin, Navigation, Star, Zap, Power, PowerOff, X, Loader2, Route, DollarSign, Users, Activity } from "lucide-react";
 import { tripService } from "@/lib/services/trip-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { createClient } from "@/lib/supabase/client";
@@ -15,25 +15,11 @@ import TripCard from "@/components/trip-card";
 import CancelTripModal from "@/components/cancel-trip-modal";
 import SimuladorUbicaciones from "@/components/simulador-ubicaciones";
 
-const iconMap: Record<string, React.ElementType> = {
-  libres: Car,
-  ocupadas: Clock,
-  serviciosHoy: CheckCircle,
-  fueraServicio: AlertTriangle,
-};
-
-const colorMap: Record<string, string> = {
-  libres: "bg-green-500",
-  ocupadas: "bg-blue-500",
-  serviciosHoy: "bg-yellow-500",
-  fueraServicio: "bg-red-500",
-};
-
-const labelMap: Record<string, string> = {
-  libres: "Unidades Libres",
-  ocupadas: "Unidades Ocupadas",
-  serviciosHoy: "Servicios Hoy",
-  fueraServicio: "Fuera de Servicio",
+const STATS_META: Record<string, { label: string; icon: React.ElementType; gradient: string; shadow: string }> = {
+  libres: { label: "Unidades Libres", icon: Car, gradient: "from-green-500 to-emerald-500", shadow: "shadow-green-200" },
+  ocupadas: { label: "Unidades Ocupadas", icon: Clock, gradient: "from-blue-500 to-cyan-500", shadow: "shadow-blue-200" },
+  serviciosHoy: { label: "Servicios Hoy", icon: CheckCircle, gradient: "from-amber-500 to-orange-500", shadow: "shadow-amber-200" },
+  fueraServicio: { label: "Fuera de Servicio", icon: AlertTriangle, gradient: "from-red-500 to-rose-500", shadow: "shadow-red-200" },
 };
 
 export default function DashboardPage() {
@@ -109,12 +95,10 @@ export default function DashboardPage() {
     }).finally(() => setLoading(false));
   };
 
-  // Carga inicial
   useEffect(() => {
     cargarDashboard();
   }, []);
 
-  // Cuando auth termina, recargamos con sesión completa
   useEffect(() => {
     if (authLoading) return;
     if (esConductor && user) {
@@ -138,9 +122,8 @@ export default function DashboardPage() {
     }
   });
 
-  // Driver location realtime subscription for admin/operator view
   useEffect(() => {
-    if (esConductor) return; // conductor view uses their own GPS, not this
+    if (esConductor) return;
     const supabase = createClient();
     const sub = supabase
       .channel("admin-driver-locations")
@@ -169,7 +152,6 @@ export default function DashboardPage() {
     return () => { sub.unsubscribe(); };
   }, [esConductor]);
 
-  // Ruta desde mi ubicación al destino según el estado
   useEffect(() => {
     if (!miUbicacion || misViajes.length === 0) return;
     const viaje = misViajes[0];
@@ -206,24 +188,25 @@ export default function DashboardPage() {
     return (
       <>
         <div className="max-w-2xl mx-auto">
-          {/* Header con online toggle + resumen */}
-          <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+          <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200/60 px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="bg-yellow-400 p-2 rounded-full">
-                <Car className="w-5 h-5 text-white" />
+              <div className="bg-gradient-to-br from-yellow-400 to-amber-500 p-2.5 rounded-xl shadow-md shadow-yellow-200">
+                <Car className="w-5 h-5 text-gray-900" />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">{user?.nombres || "Conductor"}</p>
-                <p className="text-xs text-gray-400">Dashboard</p>
+              <div className="leading-tight">
+                <p className="text-sm font-bold text-gray-900">{user?.nombres || "Conductor"}</p>
+                <p className="text-[11px] text-gray-400 font-medium">Dashboard</p>
               </div>
             </div>
             <button
               onClick={() => setOnline(!online)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                online ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+              className={`relative flex items-center gap-2 pl-3 pr-4 py-2 rounded-full text-xs font-bold transition-all duration-300 ${
+                online
+                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-md shadow-green-200"
+                  : "bg-gray-200 text-gray-500"
               }`}
             >
-              {online ? <Power className="w-3.5 h-3.5" /> : <PowerOff className="w-3.5 h-3.5" />}
+              <div className={`w-2 h-2 rounded-full ${online ? "bg-white animate-pulse" : "bg-gray-400"}`} />
               {online ? "En línea" : "Desconectado"}
             </button>
           </div>
@@ -235,11 +218,10 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Cards de resumen del día */}
             {!loading && (
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: "Viajes Hoy", value: viajesCompletadosHoy, icon: CheckCircle, color: "bg-green-500", onClick: () => {
+                  { label: "Viajes Hoy", value: viajesCompletadosHoy, icon: CheckCircle, gradient: "from-green-500 to-emerald-500", shadow: "shadow-green-200", onClick: () => {
                     if (viajesCompletadosHoy === 0) return;
                     const conductorId = user?.supabase_id || user?.id;
                     tripService.list().then((list) => {
@@ -250,19 +232,19 @@ export default function DashboardPage() {
                       setShowHistorial(true);
                     }).catch(() => {});
                   }},
-                  { label: "Activo", value: misViajes.length, icon: Navigation, color: "bg-yellow-500" },
-                  { label: "Online", value: "6h", icon: Zap, color: "bg-blue-500" },
+                  { label: "Activo", value: misViajes.length, icon: Navigation, gradient: "from-amber-500 to-orange-500", shadow: "shadow-amber-200", onClick: undefined },
+                  { label: "Online", value: "Sí", icon: Zap, gradient: "from-blue-500 to-cyan-500", shadow: "shadow-blue-200", onClick: undefined },
                 ].map((item) => (
-                  <div key={item.label} className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4 ${item.onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+                  <div key={item.label} className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-4 ${item.onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
                     onClick={item.onClick}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs text-gray-400">{item.label}</p>
-                      <div className={`${item.color} p-1.5 rounded-lg`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{item.label}</p>
+                      <div className={`bg-gradient-to-br ${item.gradient} ${item.shadow} p-2 rounded-xl shadow-sm`}>
                         <item.icon className="w-3.5 h-3.5 text-white" />
                       </div>
                     </div>
-                    <p className="text-xl font-bold text-gray-900">{item.value}</p>
+                    <p className="text-xl font-extrabold text-gray-900">{item.value}</p>
                   </div>
                 ))}
               </div>
@@ -271,10 +253,20 @@ export default function DashboardPage() {
             {loading ? (
               <div className="text-center text-gray-400 py-12 text-sm">Cargando viajes...</div>
             ) : misViajes.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-                <Car className="w-12 h-12 mb-4 text-gray-300" />
-                <p className="text-base font-medium text-gray-500">No tienes viajes activos</p>
-                <p className="text-sm mt-1">Espera a que el operador te asigne un servicio</p>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 text-center relative overflow-hidden">
+                  <div className="absolute inset-0 opacity-10">
+                    <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white" />
+                    <div className="absolute -bottom-10 -left-10 w-32 h-32 rounded-full bg-white" />
+                  </div>
+                  <div className="relative">
+                    <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mx-auto mb-3">
+                      <Car className="w-8 h-8 text-white" />
+                    </div>
+                    <p className="text-white font-bold text-lg">No tenés viajes activos</p>
+                    <p className="text-blue-100 text-sm mt-1">Esperá a que el operador te asigne un servicio</p>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -306,11 +298,11 @@ export default function DashboardPage() {
 
         <Modal open={showHistorial} onClose={() => setShowHistorial(false)}>
           <div className="max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-              <h3 className="text-lg font-semibold text-gray-800">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white/80 backdrop-blur-xl z-10">
+              <h3 className="text-lg font-bold text-gray-900">
                 Viajes de Hoy <span className="text-gray-400 font-normal">({historialViajes.length})</span>
               </h3>
-              <button onClick={() => setShowHistorial(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+              <button onClick={() => setShowHistorial(false)} className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -319,12 +311,12 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-400 text-center py-8">No hay viajes completados hoy</p>
               ) : (
                 historialViajes.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-200">
+                  <div key={v.id} className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{v.codigo}</p>
-                      <p className="text-xs text-gray-400">{v.nombre_pasajero} · {v.punto_recojo_texto}</p>
+                      <p className="text-sm font-bold text-gray-900">{v.codigo}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{v.nombre_pasajero} · {v.punto_recojo_texto}</p>
                     </div>
-                    <span className="text-xs text-gray-400">{new Date(v.created_at).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <span className="text-xs font-medium text-gray-400">{new Date(v.created_at).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
                 ))
               )}
@@ -337,59 +329,67 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <Header title="Dashboard" />
+      <Header title="Dashboard" subtitle="Resumen general del sistema" />
 
       <div className="p-8">
         {cargaError && (
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-800">
             No se pudieron cargar los datos desde Supabase. Revisá que la REST API esté habilitada en
             {" "}<strong>Project Settings → API</strong> y que los CORS permitan <code>http://localhost:3000</code>.
           </div>
         )}
+
         <div className="flex items-start justify-between gap-4 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 flex-1">
-          {loading ? (
-            <>
-              <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
-            </>
-          ) : (["libres", "ocupadas", "serviciosHoy", "fueraServicio"].map((key) => {
-            const Icon = iconMap[key];
-            return (
-              <div key={key} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">{labelMap[key]}</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-1">{stats[key] ?? "—"}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 flex-1">
+            {loading ? (
+              <>
+                <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
+              </>
+            ) : (["libres", "ocupadas", "serviciosHoy", "fueraServicio"].map((key) => {
+              const meta = STATS_META[key];
+              const Icon = meta.icon;
+              return (
+                <div key={key} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{meta.label}</p>
+                    <div className={`bg-gradient-to-br ${meta.gradient} ${meta.shadow} p-2.5 rounded-xl shadow-sm`}>
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
                   </div>
-                  <div className={`${colorMap[key]} p-3 rounded-lg`}>
-                    <Icon className="w-6 h-6 text-white" />
-                  </div>
+                  <p className="text-3xl font-extrabold text-gray-900">{stats[key] ?? "—"}</p>
                 </div>
-              </div>
-            );
-          }))}
-        </div>
+              );
+            }))}
+          </div>
           <div className="shrink-0 pt-1">
             <SimuladorUbicaciones />
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Mapa de Unidades</h3>
-            {loading ? <SkeletonMap /> : <MapboxMap height="350px" markers={marcadores} />}
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-yellow-500" />
+              Mapa de Unidades
+            </h3>
+            {loading ? <SkeletonMap /> : <div className="rounded-xl overflow-hidden border border-gray-100"><MapboxMap height="350px" markers={marcadores} /></div>}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Últimas Solicitudes</h3>
-            <div className="space-y-3">
-              {ultimasSolicitudes.map((s) => (
-                <div key={s.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{s.nombre_pasajero}</p>
-                    <p className="text-xs text-gray-500">{s.punto_recojo_texto}</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-yellow-500" />
+              Últimas Solicitudes
+            </h3>
+            <div className="space-y-1">
+              {ultimasSolicitudes.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">No hay solicitudes recientes</p>
+              ) : (ultimasSolicitudes.map((s) => (
+                <div key={s.id} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 px-2 -mx-2 rounded-lg transition-colors">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-gray-900 truncate">{s.nombre_pasajero}</p>
+                    <p className="text-xs text-gray-400 truncate mt-0.5">{s.punto_recojo_texto}</p>
                   </div>
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                  <span className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
                     s.estado === "pendiente" ? "bg-yellow-100 text-yellow-700" :
                     s.estado === "asignada" || s.estado === "aceptada" ? "bg-blue-100 text-blue-700" :
                     s.estado === "servicio_completado" ? "bg-green-100 text-green-700" :
@@ -398,7 +398,7 @@ export default function DashboardPage() {
                     {s.estado.replace("_", " ")}
                   </span>
                 </div>
-              ))}
+              )))}
             </div>
           </div>
         </div>

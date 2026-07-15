@@ -152,7 +152,7 @@ export default function UnidadesPage() {
 
   return (
     <div>
-      <Header title="Unidades" />
+      <Header title="Unidades" subtitle={`${unidades.length} unidades registradas`} />
 
       <div className="p-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -164,16 +164,16 @@ export default function UnidadesPage() {
             { label: "Ocupadas", filter: "ocupado", color: "bg-blue-500" },
             { label: "F. Servicio", filter: "fuera_servicio", color: "bg-red-500" },
           ].map((item) => (
-            <div key={item.filter} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-              <p className="text-sm text-gray-500">{item.label}</p>
-              <p className="text-2xl font-bold text-gray-900">{unidades.filter((u) => u.estado_actual === item.filter).length}</p>
+            <div key={item.filter} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{item.label}</p>
+              <p className="text-2xl font-extrabold text-gray-900 mt-1">{unidades.filter((u) => u.estado_actual === item.filter).length}</p>
             </div>
           )))}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Mapa de Flota</h3>
-          {loading ? <SkeletonMap /> : <MapboxMap height="300px" markers={marcadores} />}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8 hover:shadow-md transition-shadow">
+          <h3 className="text-base font-bold text-gray-900 mb-4">Mapa de Flota</h3>
+          {loading ? <SkeletonMap /> : <div className="rounded-xl overflow-hidden border border-gray-100"><MapboxMap height="300px" markers={marcadores} /></div>}
         </div>
 
         <div className="flex items-center justify-between mb-6">
@@ -181,7 +181,7 @@ export default function UnidadesPage() {
             <select
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
+              className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all"
             >
               <option value="">Todos los estados</option>
               {Object.keys(VEHICLE_STATUS_BADGE).map((k) => (
@@ -191,7 +191,7 @@ export default function UnidadesPage() {
             <select
               value={filtroTipo}
               onChange={(e) => setFiltroTipo(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-sm"
+              className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all"
             >
               <option value="">Todos los tipos</option>
               <option value="pasajeros">Pasajeros</option>
@@ -200,7 +200,7 @@ export default function UnidadesPage() {
           </div>
           <button
             onClick={abrirNuevo}
-            className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold px-4 py-2.5 rounded-lg transition-colors"
+            className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-400 hover:from-yellow-500 hover:to-amber-500 text-gray-900 font-bold px-5 py-2.5 rounded-xl shadow-md shadow-yellow-200/50 transition-all duration-200 active:scale-[0.98]"
           >
             <Plus className="w-5 h-5" />
             Nueva Unidad
@@ -208,18 +208,13 @@ export default function UnidadesPage() {
         </div>
 
         {loading ? <SkeletonTable rows={6} /> : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Unidad</th>
-                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Placa</th>
-                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Marca / Modelo</th>
-                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Tipo</th>
-                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Capacidad</th>
-                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Estado</th>
-                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-600">Conductor</th>
-                <th className="text-right px-6 py-3 text-sm font-semibold text-gray-600">Acciones</th>
+              <tr className="border-b border-gray-100 bg-gray-50/50">
+                {["Unidad", "Placa", "Marca / Modelo", "Tipo", "Capacidad", "Estado", "Conductor", "Acciones"].map((h) => (
+                  <th key={h} className="text-left px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -266,43 +261,43 @@ export default function UnidadesPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
-              <input type="text" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: U-001" />
+              <input type="text" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all" placeholder="Ej: U-001" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Placa</label>
-              <input type="text" value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: ABC-123" />
+              <input type="text" value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all" placeholder="Ej: ABC-123" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
-              <input type="text" value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: Toyota" />
+              <input type="text" value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all" placeholder="Ej: Toyota" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
-              <input type="text" value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="Ej: Corolla" />
+              <input type="text" value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all" placeholder="Ej: Corolla" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
-              <input type="number" value={form.anio} onChange={(e) => setForm({ ...form, anio: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="2024" />
+              <input type="number" value={form.anio} onChange={(e) => setForm({ ...form, anio: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all" placeholder="2024" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Capacidad</label>
-              <input type="number" value={form.capacidad} onChange={(e) => setForm({ ...form, capacidad: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none" />
+              <input type="number" value={form.capacidad} onChange={(e) => setForm({ ...form, capacidad: e.target.value })} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all" />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Unidad</label>
-            <select value={form.tipo_unidad} onChange={(e) => setForm({ ...form, tipo_unidad: e.target.value as VehicleForm["tipo_unidad"] })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
+            <select value={form.tipo_unidad} onChange={(e) => setForm({ ...form, tipo_unidad: e.target.value as VehicleForm["tipo_unidad"] })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all">
               <option value="pasajeros">Pasajeros</option>
               <option value="carga_pasajeros">Carga + Pasajeros</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Conductor asignado</label>
-            <select value={form.conductor_id} onChange={(e) => setForm({ ...form, conductor_id: e.target.value })} required={!editId} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none">
+            <select value={form.conductor_id} onChange={(e) => setForm({ ...form, conductor_id: e.target.value })} required={!editId} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all">
               <option value="">Seleccione un conductor</option>
               {conductores.map((c) => (
                 <option key={c.id} value={c.id}>{c.nombres} ({c.email})</option>
@@ -310,10 +305,10 @@ export default function UnidadesPage() {
             </select>
           </div>
           <div className="flex gap-3 justify-end pt-2">
-            <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <button type="button" onClick={() => setShowModal(false)}               className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all">
               Cancelar
             </button>
-            <button type="submit" disabled={saving} className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 text-sm font-medium rounded-lg transition-colors">
+            <button type="submit" disabled={saving} className="px-4 py-2.5 bg-gradient-to-r from-yellow-400 to-amber-400 hover:from-yellow-500 hover:to-amber-500 disabled:from-gray-300 disabled:to-gray-300 text-gray-900 text-sm font-bold rounded-xl shadow-md shadow-yellow-200/50 transition-all duration-200 active:scale-[0.98]">
               {saving ? "Guardando..." : editId ? "Guardar Cambios" : "Crear Unidad"}
             </button>
           </div>

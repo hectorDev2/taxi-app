@@ -60,7 +60,7 @@ export default function ConfiguracionPage() {
   if (loading) {
     return (
       <div>
-        <Header title="Configuración" />
+      <Header title="Configuración" subtitle="Parámetros del sistema y tarifas" />
         <div className="p-8 flex items-center justify-center text-gray-400">Cargando...</div>
       </div>
     );
@@ -68,31 +68,31 @@ export default function ConfiguracionPage() {
 
   return (
     <div>
-      <Header title="Configuración" />
+      <Header title="Configuración" subtitle="Parámetros del sistema y tarifas" />
 
       <div className="p-8 space-y-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Parámetros de Tarifa</h3>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+          <h3 className="text-base font-bold text-gray-900 mb-4">Parámetros de Tarifa</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tarifa Base (S/)</label>
-              <input type="number" value={tarifaBase} onChange={(e) => setTarifaBase(Number(e.target.value))} step="0.01" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none" />
+              <input type="number" value={tarifaBase} onChange={(e) => setTarifaBase(Number(e.target.value))} step="0.01" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Costo por Km (S/)</label>
-              <input type="number" value={costoKm} onChange={(e) => setCostoKm(Number(e.target.value))} step="0.01" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none" />
+              <input type="number" value={costoKm} onChange={(e) => setCostoKm(Number(e.target.value))} step="0.01" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Costo por Minuto (S/)</label>
-              <input type="number" value={costoMin} onChange={(e) => setCostoMin(Number(e.target.value))} step="0.01" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none" />
+              <input type="number" value={costoMin} onChange={(e) => setCostoMin(Number(e.target.value))} step="0.01" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Recargo Nocturno (%)</label>
-              <input type="number" value={recargoNocturno} onChange={(e) => setRecargoNocturno(Number(e.target.value))} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none" />
+              <input type="number" value={recargoNocturno} onChange={(e) => setRecargoNocturno(Number(e.target.value))} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Recargo por Tipo de Unidad (%)</label>
-              <input type="number" value={recargoTipo} onChange={(e) => setRecargoTipo(Number(e.target.value))} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none" />
+              <input type="number" value={recargoTipo} onChange={(e) => setRecargoTipo(Number(e.target.value))} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 outline-none text-sm bg-white/80 backdrop-blur transition-all" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Vigente desde</label>
@@ -101,8 +101,8 @@ export default function ConfiguracionPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Tipos de Unidad</h3>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+          <h3 className="text-base font-bold text-gray-900 mb-4">Tipos de Unidad</h3>
           <div className="space-y-3">
             {[
               { nombre: "Pasajeros", capacidad: "4 asientos" },
@@ -119,8 +119,8 @@ export default function ConfiguracionPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Preferencias Generales</h3>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+          <h3 className="text-base font-bold text-gray-900 mb-4">Preferencias Generales</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -152,7 +152,7 @@ export default function ConfiguracionPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-200 text-gray-900 font-semibold px-6 py-2.5 rounded-lg transition-colors"
+            className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-400 hover:from-yellow-500 hover:to-amber-500 disabled:from-gray-300 disabled:to-gray-300 text-gray-900 font-bold px-6 py-2.5 rounded-xl shadow-md shadow-yellow-200/50 transition-all duration-200 active:scale-[0.98]"
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             {saving ? "Guardando..." : "Guardar Cambios"}

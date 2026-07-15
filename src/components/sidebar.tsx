@@ -12,9 +12,12 @@ import {
   Settings,
   LogOut,
   Radar,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import type { AppUser } from "@/lib/services/types";
+import { useState } from "react";
 
 interface NavItem {
   label: string;
@@ -37,6 +40,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const router = useRouter();
+  const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = () => {
     logout().then(() => {
@@ -47,18 +51,51 @@ export default function Sidebar() {
   const items = navItems.filter((item) => user && item.roles.includes(user.rol));
 
   return (
-    <aside className="w-[var(--sidebar-width)] bg-white border-r border-gray-200 flex flex-col h-screen">
-      <div className="p-6 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-yellow-500">AppTaxi</h1>
-        <p className="text-sm text-gray-500">Panel de Gestión</p>
+    <aside className={`${collapsed ? "w-[72px]" : "w-[var(--sidebar-width)]"} bg-white/90 backdrop-blur-xl border-r border-gray-200/60 flex flex-col h-screen transition-all duration-300 relative`}>
+      {/* Logo */}
+      <div className={`flex items-center ${collapsed ? "justify-center px-2" : "px-6"} h-16 border-b border-gray-100`}>
+        {collapsed ? (
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center shadow-md shadow-yellow-200">
+            <Car className="w-5 h-5 text-gray-900" />
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center shadow-md shadow-yellow-200">
+              <Car className="w-5 h-5 text-gray-900" />
+            </div>
+            <div>
+              <h1 className="text-base font-extrabold text-gray-900 tracking-tight">AppTaxi</h1>
+              <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Panel de Gestión</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="px-4 py-3 border-b border-gray-100">
-        <p className="text-sm font-medium text-gray-900 truncate">{user?.nombres || "Usuario"}</p>
-        <p className="text-xs text-gray-400 capitalize">{user?.rol || "—"}</p>
+      {/* User info */}
+      <div className={`${collapsed ? "px-2 py-3 flex justify-center" : "px-4 py-3"} border-b border-gray-100`}>
+        {collapsed ? (
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
+            <span className="text-white text-xs font-bold">{(user?.nombres || "U")[0]}</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+              <span className="text-white text-xs font-bold">{(user?.nombres || "U")[0]}</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-gray-900 truncate">{user?.nombres || "Usuario"}</p>
+              <p className={`text-xs font-semibold uppercase tracking-wider ${
+                user?.rol === "admin" ? "text-yellow-600" :
+                user?.rol === "operador" ? "text-blue-600" :
+                "text-green-600"
+              }`}>{user?.rol || "—"}</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {items.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;
@@ -67,26 +104,41 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                "flex items-center rounded-xl text-sm font-bold transition-all duration-200",
+                collapsed ? "justify-center p-3" : "gap-3 px-3 py-2.5",
                 active
-                  ? "bg-yellow-50 text-yellow-700"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  ? "bg-gradient-to-r from-yellow-400 to-amber-400 text-gray-900 shadow-md shadow-yellow-200/50"
+                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
               )}
+              title={collapsed ? item.label : undefined}
             >
-              <Icon className="w-5 h-5" />
-              {item.label}
+              <Icon className={clsx(collapsed ? "w-5 h-5" : "w-5 h-5 shrink-0")} />
+              {!collapsed && item.label}
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-gray-200">
+      {/* Collapse toggle */}
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all z-10"
+      >
+        {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+      </button>
+
+      {/* Logout */}
+      <div className={`${collapsed ? "px-2 py-3" : "px-3 py-3"} border-t border-gray-100`}>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 w-full transition-colors"
+          className={clsx(
+            "flex items-center rounded-xl text-sm font-bold text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all duration-200 w-full",
+            collapsed ? "justify-center p-3" : "gap-3 px-3 py-2.5"
+          )}
+          title={collapsed ? "Cerrar sesión" : undefined}
         >
-          <LogOut className="w-5 h-5" />
-          Cerrar sesión
+          <LogOut className="w-5 h-5 shrink-0" />
+          {!collapsed && "Cerrar sesión"}
         </button>
       </div>
     </aside>

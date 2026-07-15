@@ -152,13 +152,13 @@ export default function SeguimientoPage() {
 
   return (
     <div className="flex flex-col h-screen">
-      <Header title="Seguimiento en vivo" />
+      <Header title="Seguimiento en vivo" subtitle="Monitoreo en tiempo real de conductores" />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-72 bg-white border-r border-gray-200 flex flex-col overflow-hidden shrink-0">
+        <aside className="w-72 bg-white/90 backdrop-blur-xl border-r border-gray-200/60 flex flex-col overflow-hidden shrink-0">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-700">Vehículos activos</span>
+            <span className="text-sm font-bold text-gray-800">Vehículos activos</span>
             <span className="text-xs bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">
               {drivers.length}
             </span>
